@@ -240,17 +240,11 @@
                         </Grid.ColumnDefinitions>
 
                         <Button Grid.Column="0" 
-                                Content="➕ Создать директорию"
+                                Content="Создать директорию"
                                 Command="{Binding CreateDirectoryCommand}"
                                 Style="{StaticResource RevitApplyButtonStyle}"
                                 HorizontalAlignment="Left"
                                 Width="180"/>
-
-                        <Button Grid.Column="2" 
-                                Content="Обновить"
-                                Command="{Binding RefreshCommand}"
-                                Style="{StaticResource RevitButtonStyle}"
-                                Width="100"/>
                     </Grid>
                 </Grid>
             </Border>
