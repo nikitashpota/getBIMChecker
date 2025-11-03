@@ -1,0 +1,175 @@
+﻿<Window x:Class="getBIMChecker.Views.AxisManagerWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Управление эталонными осями" 
+        Height="600" 
+        Width="800"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize">
+
+    <Window.Resources>
+        <!-- Стиль для привязанной директории (жирный шрифт) -->
+        <Style x:Key="BoundDirectoryStyle" TargetType="DataGridRow">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsBound}" Value="True">
+                    <Setter Property="FontWeight" Value="Bold"/>
+                    <Setter Property="Background" Value="#E8F4F8"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="15">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Заголовок -->
+        <TextBlock Grid.Row="0" 
+                   Text="Директории проектов" 
+                   FontSize="16" 
+                   FontWeight="Bold" 
+                   Margin="0,0,0,10"/>
+
+        <!-- Информация о модели -->
+        <Border Grid.Row="1" 
+                Background="#F0F0F0" 
+                Padding="10" 
+                Margin="0,0,0,10" 
+                CornerRadius="3">
+            <StackPanel>
+                <TextBlock>
+                    <Run Text="Текущая модель: " FontWeight="Bold"/>
+                    <Run Text="{Binding ModelName}"/>
+                </TextBlock>
+                <TextBlock Margin="0,5,0,0">
+                    <Run Text="Статус: " FontWeight="Bold"/>
+                    <Run Text="{Binding StatusMessage}"/>
+                </TextBlock>
+            </StackPanel>
+        </Border>
+
+        <!-- Таблица директорий -->
+        <DataGrid Grid.Row="2" 
+                  ItemsSource="{Binding Directories}" 
+                  SelectedItem="{Binding SelectedDirectory, Mode=TwoWay}"
+                  AutoGenerateColumns="False" 
+                  CanUserAddRows="False"
+                  CanUserDeleteRows="False"
+                  IsReadOnly="True"
+                  SelectionMode="Single"
+                  RowStyle="{StaticResource BoundDirectoryStyle}"
+                  Margin="0,0,0,10">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Код директории" 
+                                    Binding="{Binding Code}" 
+                                    Width="*"/>
+                <DataGridTextColumn Header="Количество осей" 
+                                    Binding="{Binding AxisCount}" 
+                                    Width="150"/>
+                <DataGridTemplateColumn Header="Действия" Width="250">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                <Button Content="Привязать" 
+                                        Width="70" 
+                                        Margin="2"
+                                        Command="{Binding DataContext.BindDirectoryCommand, 
+                                                 RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}"/>
+                                <Button Content="Редактировать" 
+                                        Width="100" 
+                                        Margin="2"
+                                        Command="{Binding DataContext.EditDirectoryCommand, 
+                                                 RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}"/>
+                                <Button Content="Удалить" 
+                                        Width="60" 
+                                        Margin="2"
+                                        Command="{Binding DataContext.DeleteDirectoryCommand, 
+                                                 RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Кнопки управления директориями -->
+        <StackPanel Grid.Row="3" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Left" 
+                    Margin="0,0,0,20">
+            <Button Content="Создать директорию" 
+                    Width="150" 
+                    Height="30"
+                    Command="{Binding CreateDirectoryCommand}"/>
+            <Button Content="Обновить" 
+                    Width="100" 
+                    Height="30"
+                    Margin="10,0,0,0"
+                    Command="{Binding RefreshCommand}"/>
+        </StackPanel>
+
+        <!-- Разделитель -->
+        <Separator Grid.Row="4" Margin="0,0,0,15"/>
+
+        <!-- Блок работы с осями -->
+        <StackPanel Grid.Row="5">
+            <TextBlock Text="Работа с осями" 
+                       FontSize="14" 
+                       FontWeight="Bold" 
+                       Margin="0,0,0,10"/>
+
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                <Button Content="Выбрать оси" 
+                        Width="120" 
+                        Height="35"
+                        Command="{Binding SelectAxisCommand}"/>
+                <TextBlock Text="{Binding AxisCountText}" 
+                           VerticalAlignment="Center" 
+                           Margin="15,0,0,0"
+                           FontSize="13"/>
+            </StackPanel>
+
+            <Button Content="Отправить оси в БД" 
+                    Width="150" 
+                    Height="35"
+                    HorizontalAlignment="Left"
+                    Command="{Binding SendAxisCommand}"
+                    IsEnabled="{Binding IsBound}">
+                <Button.Style>
+                    <Style TargetType="Button">
+                        <Setter Property="Background" Value="#4CAF50"/>
+                        <Setter Property="Foreground" Value="White"/>
+                        <Setter Property="FontWeight" Value="Bold"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#CCCCCC"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Button.Style>
+            </Button>
+        </StackPanel>
+
+        <!-- Статусная строка -->
+        <Border Grid.Row="6" 
+                Background="#E3F2FD" 
+                Padding="10" 
+                Margin="0,15,0,0" 
+                CornerRadius="3">
+            <TextBlock>
+                <Run Text="💡 Подсказка: " FontWeight="Bold"/>
+                <Run Text="Создайте директорию проекта, привяжите к ней модель, затем выберите и отправьте оси."/>
+            </TextBlock>
+        </Border>
+    </Grid>
+</Window>

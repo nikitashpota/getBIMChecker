@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+  <AddIn Type="Command">
+    <Text>Command getBIMChecker</Text>
+    <Description>Some description for getBIMChecker</Description>
+    <Assembly>getBIMChecker.dll</Assembly>
+    <FullClassName>getBIMChecker.Command</FullClassName>
+    <ClientId>93186deb-f0dc-4a9d-a386-8562ccae7bc1</ClientId>
+    <VendorId>com.typepad.thebuildingcoder</VendorId>
+    <VendorDescription>The Building Coder, http://thebuildingcoder.typepad.com</VendorDescription>
+  </AddIn>
+  <AddIn Type="Application">
+    <Name>Application getBIMChecker</Name>
+    <Assembly>getBIMChecker.dll</Assembly>
+    <FullClassName>getBIMChecker.App</FullClassName>
+    <ClientId>28f8d8ce-6c15-4437-b5aa-88812e24ca8c</ClientId>
+    <VendorId>com.typepad.thebuildingcoder</VendorId>
+    <VendorDescription>The Building Coder, http://thebuildingcoder.typepad.com</VendorDescription>
+  </AddIn>
+</RevitAddIns>
