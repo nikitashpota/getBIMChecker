@@ -179,7 +179,7 @@ namespace getBIMChecker.ViewModels
 
             // Загрузка данных
             ModelName = _modelBindingService.GetModelName(_document);
-            
+
             // Получаем код директории из параметра "#_Код площадки"
             string boundDirectoryCode = _modelBindingService.GetBoundDirectoryCode(_document);
             if (!string.IsNullOrWhiteSpace(boundDirectoryCode))
@@ -228,7 +228,7 @@ namespace getBIMChecker.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Ошибка создания:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
@@ -247,21 +247,22 @@ namespace getBIMChecker.ViewModels
                 {
                     string newCode = dialog.InputText;
                     string oldCode = SelectedDirectory.Code;
-                    
-                    _directoryService.UpdateDirectory(SelectedDirectory.Id, newCode);
-                    
+                    int directoryId = SelectedDirectory.Id;
+
+                    _directoryService.UpdateDirectory(directoryId, newCode);
+
                     // Если редактируем привязанную директорию, обновляем параметр
-                    if (BoundDirectoryId == SelectedDirectory.Id)
+                    if (BoundDirectoryId == directoryId)
                     {
                         _modelBindingService.BindModelToDirectory(_document, newCode);
                     }
-                    
+
                     LoadDirectories();
                     StatusMessage = $"Директория обновлена с '{oldCode}' на '{newCode}'";
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Ошибка редактирования:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
         }
@@ -275,23 +276,27 @@ namespace getBIMChecker.ViewModels
 
             try
             {
-                bool deleted = _directoryService.DeleteDirectory(SelectedDirectory.Id, SelectedDirectory.Code);
+                // Сохраняем данные ПЕРЕД удалением
+                int directoryId = SelectedDirectory.Id;
+                string directoryCode = SelectedDirectory.Code;
+
+                bool deleted = _directoryService.DeleteDirectory(directoryId, directoryCode);
                 if (deleted)
                 {
                     // Если удалили привязанную директорию, отвязываем модель
-                    if (BoundDirectoryId == SelectedDirectory.Id)
+                    if (BoundDirectoryId == directoryId)
                     {
                         _modelBindingService.UnbindModel(_document);
                         BoundDirectoryId = null;
                     }
 
                     LoadDirectories();
-                    StatusMessage = $"Директория '{SelectedDirectory.Code}' удалена";
+                    StatusMessage = $"Директория '{directoryCode}' удалена";
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Ошибка удаления:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -304,6 +309,10 @@ namespace getBIMChecker.ViewModels
 
             try
             {
+                // Сохраняем данные ПЕРЕД привязкой
+                int directoryId = SelectedDirectory.Id;
+                string directoryCode = SelectedDirectory.Code;
+
                 // Проверяем существование параметра
                 if (!_modelBindingService.CheckParameterExists(_document))
                 {
@@ -316,14 +325,14 @@ namespace getBIMChecker.ViewModels
                     return;
                 }
 
-                _modelBindingService.BindModelToDirectory(_document, SelectedDirectory.Code);
-                BoundDirectoryId = SelectedDirectory.Id;
+                _modelBindingService.BindModelToDirectory(_document, directoryCode);
+                BoundDirectoryId = directoryId;
                 LoadDirectories();
-                StatusMessage = $"Модель привязана к директории '{SelectedDirectory.Code}'";
+                StatusMessage = $"Модель привязана к директории '{directoryCode}'";
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Ошибка привязки:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -361,7 +370,7 @@ namespace getBIMChecker.ViewModels
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Ошибка выбора осей: {ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show($"Ошибка выбора осей:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
