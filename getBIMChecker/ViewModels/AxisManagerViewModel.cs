@@ -377,17 +377,12 @@ namespace getBIMChecker.ViewModels
         }
 
         /// <summary>
-        /// Отправить оси в БД
-        /// </summary>
-        // ЗАМЕНИТЕ метод SendAxis в AxisManagerViewModel.cs на этот код с DEBUG логами
-
-        /// <summary>
-        /// Отправить оси в БД
+        /// Отправить оси в БД как эталонные для директории
         /// </summary>
         private void SendAxis()
         {
             System.Diagnostics.Debug.WriteLine("\n=========================================");
-            System.Diagnostics.Debug.WriteLine("=== НАЧАЛО SendAxis ===");
+            System.Diagnostics.Debug.WriteLine("=== НАЧАЛО SendAxis (отправка ЭТАЛОННЫХ осей) ===");
             System.Diagnostics.Debug.WriteLine("=========================================\n");
 
             System.Diagnostics.Debug.WriteLine($"[SendAxis] IsBound: {IsBound}");
@@ -453,31 +448,31 @@ namespace getBIMChecker.ViewModels
                 }
                 System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ Проверка дубликатов завершена");
 
-                // Создаем или обновляем модель в БД
-                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Создание/обновление модели...");
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] ModelName: {ModelName}");
+                // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Получаем ID эталонной модели для директории
+                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Получение ID эталонной модели...");
                 System.Diagnostics.Debug.WriteLine($"[SendAxis] BoundDirectoryId: {BoundDirectoryId.Value}");
 
-                int modelId = _databaseService.CreateOrUpdateModel(ModelName, BoundDirectoryId.Value);
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ ModelId получен: {modelId}");
+                int referenceModelId = _databaseService.GetOrCreateReferenceModelId(BoundDirectoryId.Value);
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ ReferenceModelId получен: {referenceModelId}");
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] ℹ️ Оси будут сохранены как ЭТАЛОННЫЕ для директории");
 
-                // Удаляем старые оси модели
-                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Удаление старых осей...");
-                _databaseService.DeleteAxesByModelId(modelId);
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ Старые оси удалены");
+                // Удаляем старые эталонные оси директории
+                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Удаление старых эталонных осей...");
+                _databaseService.DeleteAxesByModelId(referenceModelId);
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ Старые эталонные оси удалены");
 
-                // Добавляем новые оси
-                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Добавление новых осей...");
+                // Добавляем новые эталонные оси
+                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Добавление новых эталонных осей...");
                 System.Diagnostics.Debug.WriteLine($"[SendAxis] Вызов InsertAxes с {axisDataList.Count} осями");
 
-                _databaseService.InsertAxes(modelId, axisDataList);
+                _databaseService.InsertAxes(referenceModelId, axisDataList);
 
                 System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓✓✓ InsertAxes выполнен успешно!");
 
                 // Проверяем что вставилось
                 System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Проверка вставки...");
-                var insertedAxes = _databaseService.GetAxesByModelId(modelId);
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] Проверка: в БД теперь {insertedAxes.Count} осей");
+                var insertedAxes = _databaseService.GetAxesByModelId(referenceModelId);
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] Проверка: в БД теперь {insertedAxes.Count} эталонных осей");
 
                 if (insertedAxes.Count != axisDataList.Count)
                 {
@@ -491,11 +486,17 @@ namespace getBIMChecker.ViewModels
                 System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ Список обновлен");
 
                 System.Diagnostics.Debug.WriteLine($"\n=========================================");
-                System.Diagnostics.Debug.WriteLine($"=== УСПЕХ! Отправлено осей: {axisDataList.Count} ===");
+                System.Diagnostics.Debug.WriteLine($"=== УСПЕХ! Отправлено ЭТАЛОННЫХ осей: {axisDataList.Count} ===");
                 System.Diagnostics.Debug.WriteLine($"=========================================\n");
 
-                MessageBox.Show($"Успешно отправлено осей: {axisDataList.Count}", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
-                StatusMessage = $"Отправлено осей: {axisDataList.Count}";
+                MessageBox.Show(
+                    $"Успешно отправлено эталонных осей: {axisDataList.Count}\n\n" +
+                    $"Эти оси будут использоваться для проверки всех моделей в директории '{_directoryService.GetDirectoryById(BoundDirectoryId.Value)?.Code}'",
+                    "Успех",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+
+                StatusMessage = $"Отправлено эталонных осей: {axisDataList.Count}";
 
                 // Сбрасываем выбор
                 _selectedGrids = null;
@@ -522,53 +523,76 @@ namespace getBIMChecker.ViewModels
         }
 
         /// <summary>
-        /// Запустить проверку осей
+        /// Запустить проверку осей текущей модели с эталонными
         /// </summary>
         private void RunAxisCheck()
         {
             if (!IsBound)
             {
                 MessageBox.Show(
-                    "Модель не привязана к директории", 
-                    "Ошибка", 
-                    MessageBoxButton.OK, 
+                    "Модель не привязана к директории",
+                    "Ошибка",
+                    MessageBoxButton.OK,
                     MessageBoxImage.Warning);
                 return;
             }
 
             try
             {
-                // 1. Получить эталонные оси
-                var modelId = _databaseService.CreateOrUpdateModel(ModelName, BoundDirectoryId.Value);
-                var referenceAxes = _databaseService.GetAxesByModelId(modelId);
+                System.Diagnostics.Debug.WriteLine("\n=========================================");
+                System.Diagnostics.Debug.WriteLine("=== НАЧАЛО RunAxisCheck (проверка осей модели) ===");
+                System.Diagnostics.Debug.WriteLine("=========================================\n");
+
+                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] Текущая модель: {ModelName}");
+                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] Привязана к директории ID: {BoundDirectoryId.Value}");
+
+                // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Получаем эталонные оси по ID директории
+                System.Diagnostics.Debug.WriteLine($"\n[RunAxisCheck] >>> Получение эталонных осей из директории...");
+                var referenceAxes = _databaseService.GetReferenceAxesByDirectoryId(BoundDirectoryId.Value);
+                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] ✓ Получено эталонных осей: {referenceAxes.Count}");
 
                 if (referenceAxes.Count == 0)
                 {
+                    System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] ✗ Эталонные оси не найдены!");
+
                     MessageBox.Show(
                         "В базе данных нет эталонных осей для данной директории.\n\n" +
-                        "Сначала отправьте эталонные оси в БД.", 
-                        "Нет эталонных осей", 
-                        MessageBoxButton.OK, 
+                        "Сначала отправьте эталонные оси в БД из модели-координации.",
+                        "Нет эталонных осей",
+                        MessageBoxButton.OK,
                         MessageBoxImage.Warning);
                     return;
                 }
 
                 // 2. Запустить проверку
+                System.Diagnostics.Debug.WriteLine($"\n[RunAxisCheck] >>> Запуск проверки осей текущей модели...");
                 var validationService = new AxisValidationService();
                 var results = validationService.ValidateAllAxes(_document, referenceAxes);
+                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] ✓ Проверка завершена, найдено ошибок: {results.Count(r => r.HasErrors)}");
 
                 // Подсчитываем количество осей в модели
                 var axisCollectionService = new AxisCollectionService();
                 var modelGrids = axisCollectionService.GetAllGridsFromDocument(_document);
                 int totalAxesInModel = modelGrids.Count;
+                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] Всего осей в текущей модели: {totalAxesInModel}");
+                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] Всего эталонных осей: {referenceAxes.Count}");
 
                 // 3. Сохранить результаты в БД
+                // Создаём запись для текущей модели (не эталонной!)
+                var currentModelId = _databaseService.CreateOrUpdateModel(ModelName, BoundDirectoryId.Value);
+                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] Текущая модель ID: {currentModelId}");
+
                 var reportService = new ReportService(_databaseService);
-                reportService.SaveCheckResults(modelId, CheckType.Manual, results, totalAxesInModel, referenceAxes.Count);
+                reportService.SaveCheckResults(currentModelId, CheckType.Manual, results, totalAxesInModel, referenceAxes.Count);
+                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] ✓ Результаты сохранены в БД");
 
                 // 4. Создать отчет
                 var directoryCode = _modelBindingService.GetBoundDirectoryCode(_document);
                 var report = reportService.GenerateReport(results, ModelName, directoryCode, totalAxesInModel, referenceAxes.Count);
+
+                System.Diagnostics.Debug.WriteLine($"\n=========================================");
+                System.Diagnostics.Debug.WriteLine($"=== ПРОВЕРКА ЗАВЕРШЕНА ===");
+                System.Diagnostics.Debug.WriteLine($"=========================================\n");
 
                 // 5. Показать окно с результатами
                 var viewModel = new CheckResultsViewModel(report, _uiDocument);
@@ -580,10 +604,12 @@ namespace getBIMChecker.ViewModels
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"\n[RunAxisCheck] ✗✗✗ ОШИБКА: {ex.Message}");
+
                 MessageBox.Show(
-                    $"Ошибка при проверке осей:\n{ex.Message}", 
-                    "Ошибка", 
-                    MessageBoxButton.OK, 
+                    $"Ошибка при проверке осей:\n{ex.Message}",
+                    "Ошибка",
+                    MessageBoxButton.OK,
                     MessageBoxImage.Error);
             }
         }

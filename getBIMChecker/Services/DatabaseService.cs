@@ -9,6 +9,9 @@ namespace getBIMChecker.Services
     {
         private readonly DatabaseSettings _settings;
 
+        // Константа для имени эталонной модели директории
+        private const string REFERENCE_MODEL_NAME = "_Reference";
+
         public DatabaseService(DatabaseSettings settings)
         {
             _settings = settings;
@@ -29,23 +32,27 @@ namespace getBIMChecker.Services
                     string query = @"
                         SELECT d.id, d.code, d.created_at, COUNT(a.id) as axis_count
                         FROM Directories d
-                        LEFT JOIN Models m ON d.id = m.directory_id
+                        LEFT JOIN Models m ON d.id = m.directory_id AND m.model_name = @referenceName
                         LEFT JOIN Axes a ON m.id = a.model_id
                         GROUP BY d.id, d.code, d.created_at
                         ORDER BY d.created_at DESC";
 
                     using (var cmd = new MySqlCommand(query, connection))
-                    using (var reader = cmd.ExecuteReader())
                     {
-                        while (reader.Read())
+                        cmd.Parameters.AddWithValue("@referenceName", REFERENCE_MODEL_NAME);
+
+                        using (var reader = cmd.ExecuteReader())
                         {
-                            directories.Add(new Directory
+                            while (reader.Read())
                             {
-                                Id = reader.GetInt32("id"),
-                                Code = reader.GetString("code"),
-                                CreatedAt = reader.GetDateTime("created_at"),
-                                AxisCount = reader.IsDBNull(reader.GetOrdinal("axis_count")) ? 0 : reader.GetInt32("axis_count")
-                            });
+                                directories.Add(new Directory
+                                {
+                                    Id = reader.GetInt32("id"),
+                                    Code = reader.GetString("code"),
+                                    CreatedAt = reader.GetDateTime("created_at"),
+                                    AxisCount = reader.IsDBNull(reader.GetOrdinal("axis_count")) ? 0 : reader.GetInt32("axis_count")
+                                });
+                            }
                         }
                     }
                 }
@@ -226,6 +233,17 @@ namespace getBIMChecker.Services
             }
         }
 
+        /// <summary>
+        /// Получить ID эталонной модели для директории (создаёт если не существует)
+        /// </summary>
+        public int GetOrCreateReferenceModelId(int directoryId)
+        {
+            System.Diagnostics.Debug.WriteLine($"\n[DB] >>> GetOrCreateReferenceModelId");
+            System.Diagnostics.Debug.WriteLine($"[DB]     directoryId: {directoryId}");
+
+            return CreateOrUpdateModel(REFERENCE_MODEL_NAME, directoryId);
+        }
+
         #endregion
 
         #region Работа с осями
@@ -391,6 +409,72 @@ namespace getBIMChecker.Services
             {
                 System.Diagnostics.Debug.WriteLine($"[DB]     ✗ ОШИБКА: {ex.Message}");
                 throw new Exception($"Ошибка получения осей: {ex.Message}");
+            }
+
+            return axes;
+        }
+
+        /// <summary>
+        /// Получить эталонные оси для директории
+        /// </summary>
+        public List<AxisData> GetReferenceAxesByDirectoryId(int directoryId)
+        {
+            System.Diagnostics.Debug.WriteLine($"\n[DB] >>> GetReferenceAxesByDirectoryId");
+            System.Diagnostics.Debug.WriteLine($"[DB]     directoryId: {directoryId}");
+
+            var axes = new List<AxisData>();
+
+            try
+            {
+                using (var connection = new MySqlConnection(_settings.GetConnectionString()))
+                {
+                    connection.Open();
+
+                    string query = @"
+                        SELECT a.id, a.model_id, a.axis_name, a.x1, a.y1, a.x2, a.y2, a.created_at
+                        FROM Axes a
+                        INNER JOIN Models m ON a.model_id = m.id
+                        WHERE m.directory_id = @directoryId AND m.model_name = @referenceName";
+
+                    using (var cmd = new MySqlCommand(query, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@directoryId", directoryId);
+                        cmd.Parameters.AddWithValue("@referenceName", REFERENCE_MODEL_NAME);
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                axes.Add(new AxisData
+                                {
+                                    Id = reader.GetInt32("id"),
+                                    ModelId = reader.GetInt32("model_id"),
+                                    AxisName = reader.GetString("axis_name"),
+                                    X1 = reader.GetDouble("x1"),
+                                    Y1 = reader.GetDouble("y1"),
+                                    X2 = reader.GetDouble("x2"),
+                                    Y2 = reader.GetDouble("y2"),
+                                    CreatedAt = reader.GetDateTime("created_at")
+                                });
+                            }
+                        }
+                    }
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[DB]     ✓ Найдено эталонных осей: {axes.Count}");
+                if (axes.Count > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[DB]     Примеры эталонных осей: {string.Join(", ", axes.Take(3).Select(a => a.AxisName))}");
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"[DB]     ⚠ Эталонные оси не найдены для директории {directoryId}");
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DB]     ✗ ОШИБКА: {ex.Message}");
+                throw new Exception($"Ошибка получения эталонных осей: {ex.Message}");
             }
 
             return axes;
