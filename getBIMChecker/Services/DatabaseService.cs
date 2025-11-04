@@ -1,13 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using MySql.Data.MySqlClient;
 using getBIMChecker.Models;
 
 namespace getBIMChecker.Services
 {
-    /// <summary>
-    /// Основной сервис для работы с базой данных
-    /// </summary>
     public class DatabaseService
     {
         private readonly DatabaseSettings _settings;
@@ -19,9 +16,6 @@ namespace getBIMChecker.Services
 
         #region Работа с директориями
 
-        /// <summary>
-        /// Получить список всех директорий
-        /// </summary>
         public List<Directory> GetAllDirectories()
         {
             var directories = new List<Directory>();
@@ -64,9 +58,6 @@ namespace getBIMChecker.Services
             return directories;
         }
 
-        /// <summary>
-        /// Создать новую директорию
-        /// </summary>
         public int CreateDirectory(string code)
         {
             try
@@ -74,32 +65,24 @@ namespace getBIMChecker.Services
                 using (var connection = new MySqlConnection(_settings.GetConnectionString()))
                 {
                     connection.Open();
-
                     string query = "INSERT INTO Directories (code) VALUES (@code)";
 
                     using (var cmd = new MySqlCommand(query, connection))
                     {
                         cmd.Parameters.AddWithValue("@code", code);
                         cmd.ExecuteNonQuery();
-
-                        // Получаем ID созданной директории
                         return (int)cmd.LastInsertedId;
                     }
                 }
             }
             catch (MySqlException ex)
             {
-                if (ex.Number == 1062) // Duplicate entry
-                {
+                if (ex.Number == 1062)
                     throw new Exception($"Директория с кодом '{code}' уже существует");
-                }
                 throw new Exception($"Ошибка создания директории: {ex.Message}");
             }
         }
 
-        /// <summary>
-        /// Обновить код директории
-        /// </summary>
         public void UpdateDirectory(int directoryId, string newCode)
         {
             try
@@ -107,7 +90,6 @@ namespace getBIMChecker.Services
                 using (var connection = new MySqlConnection(_settings.GetConnectionString()))
                 {
                     connection.Open();
-
                     string query = "UPDATE Directories SET code = @code WHERE id = @id";
 
                     using (var cmd = new MySqlCommand(query, connection))
@@ -120,17 +102,12 @@ namespace getBIMChecker.Services
             }
             catch (MySqlException ex)
             {
-                if (ex.Number == 1062) // Duplicate entry
-                {
+                if (ex.Number == 1062)
                     throw new Exception($"Директория с кодом '{newCode}' уже существует");
-                }
                 throw new Exception($"Ошибка обновления директории: {ex.Message}");
             }
         }
 
-        /// <summary>
-        /// Удалить директорию (каскадно удалятся связанные модели и оси)
-        /// </summary>
         public void DeleteDirectory(int directoryId)
         {
             try
@@ -138,7 +115,6 @@ namespace getBIMChecker.Services
                 using (var connection = new MySqlConnection(_settings.GetConnectionString()))
                 {
                     connection.Open();
-
                     string query = "DELETE FROM Directories WHERE id = @id";
 
                     using (var cmd = new MySqlCommand(query, connection))
@@ -158,9 +134,6 @@ namespace getBIMChecker.Services
 
         #region Работа с моделями
 
-        /// <summary>
-        /// Получить модель по имени и директории
-        /// </summary>
         public ModelInfo GetModel(string modelName, int directoryId)
         {
             try
@@ -203,47 +176,52 @@ namespace getBIMChecker.Services
             return null;
         }
 
-        /// <summary>
-        /// Создать или обновить модель
-        /// </summary>
         public int CreateOrUpdateModel(string modelName, int directoryId)
         {
+            System.Diagnostics.Debug.WriteLine($"\n[DB] >>> CreateOrUpdateModel");
+            System.Diagnostics.Debug.WriteLine($"[DB]     modelName: {modelName}");
+            System.Diagnostics.Debug.WriteLine($"[DB]     directoryId: {directoryId}");
+
             try
             {
                 using (var connection = new MySqlConnection(_settings.GetConnectionString()))
                 {
                     connection.Open();
+                    System.Diagnostics.Debug.WriteLine($"[DB]     ✓ Соединение открыто");
 
-                    // Проверяем существование модели
                     var existingModel = GetModel(modelName, directoryId);
 
                     if (existingModel != null)
                     {
-                        // Модель существует, обновляем дату
                         string updateQuery = "UPDATE Models SET updated_at = CURRENT_TIMESTAMP WHERE id = @id";
                         using (var cmd = new MySqlCommand(updateQuery, connection))
                         {
                             cmd.Parameters.AddWithValue("@id", existingModel.Id);
                             cmd.ExecuteNonQuery();
                         }
+
+                        System.Diagnostics.Debug.WriteLine($"[DB]     ✓ Модель обновлена: ID={existingModel.Id}");
                         return existingModel.Id;
                     }
                     else
                     {
-                        // Создаем новую модель
                         string insertQuery = "INSERT INTO Models (directory_id, model_name) VALUES (@directoryId, @modelName)";
                         using (var cmd = new MySqlCommand(insertQuery, connection))
                         {
                             cmd.Parameters.AddWithValue("@directoryId", directoryId);
                             cmd.Parameters.AddWithValue("@modelName", modelName);
                             cmd.ExecuteNonQuery();
-                            return (int)cmd.LastInsertedId;
+
+                            int newId = (int)cmd.LastInsertedId;
+                            System.Diagnostics.Debug.WriteLine($"[DB]     ✓ Модель создана: ID={newId}");
+                            return newId;
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[DB]     ✗ ОШИБКА: {ex.Message}");
                 throw new Exception($"Ошибка создания/обновления модели: {ex.Message}");
             }
         }
@@ -252,45 +230,51 @@ namespace getBIMChecker.Services
 
         #region Работа с осями
 
-        /// <summary>
-        /// Удалить все оси модели
-        /// </summary>
         public void DeleteAxesByModelId(int modelId)
         {
+            System.Diagnostics.Debug.WriteLine($"\n[DB] >>> DeleteAxesByModelId");
+            System.Diagnostics.Debug.WriteLine($"[DB]     modelId: {modelId}");
+
             try
             {
                 using (var connection = new MySqlConnection(_settings.GetConnectionString()))
                 {
                     connection.Open();
-
                     string query = "DELETE FROM Axes WHERE model_id = @modelId";
 
                     using (var cmd = new MySqlCommand(query, connection))
                     {
                         cmd.Parameters.AddWithValue("@modelId", modelId);
-                        cmd.ExecuteNonQuery();
+                        int deleted = cmd.ExecuteNonQuery();
+                        System.Diagnostics.Debug.WriteLine($"[DB]     ✓ Удалено старых осей: {deleted}");
                     }
                 }
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[DB]     ✗ ОШИБКА: {ex.Message}");
                 throw new Exception($"Ошибка удаления осей: {ex.Message}");
             }
         }
 
-        /// <summary>
-        /// Добавить оси в БД (пакетная вставка)
-        /// </summary>
         public void InsertAxes(int modelId, List<AxisData> axes)
         {
+            System.Diagnostics.Debug.WriteLine($"\n[DB] >>> InsertAxes");
+            System.Diagnostics.Debug.WriteLine($"[DB]     modelId: {modelId}");
+            System.Diagnostics.Debug.WriteLine($"[DB]     axes.Count: {axes?.Count ?? 0}");
+
             if (axes == null || axes.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine("[DB]     ⚠ Список осей пуст!");
                 return;
+            }
 
             try
             {
                 using (var connection = new MySqlConnection(_settings.GetConnectionString()))
                 {
                     connection.Open();
+                    System.Diagnostics.Debug.WriteLine($"[DB]     ✓ Соединение открыто");
 
                     string query = @"
                         INSERT INTO Axes (model_id, axis_name, x1, y1, x2, y2)
@@ -298,10 +282,16 @@ namespace getBIMChecker.Services
 
                     using (var transaction = connection.BeginTransaction())
                     {
+                        System.Diagnostics.Debug.WriteLine($"[DB]     Начало транзакции...");
+
                         try
                         {
-                            foreach (var axis in axes)
+                            int insertedCount = 0;
+
+                            for (int i = 0; i < axes.Count; i++)
                             {
+                                var axis = axes[i];
+
                                 using (var cmd = new MySqlCommand(query, connection, transaction))
                                 {
                                     cmd.Parameters.AddWithValue("@modelId", modelId);
@@ -310,31 +300,50 @@ namespace getBIMChecker.Services
                                     cmd.Parameters.AddWithValue("@y1", axis.Y1);
                                     cmd.Parameters.AddWithValue("@x2", axis.X2);
                                     cmd.Parameters.AddWithValue("@y2", axis.Y2);
+
                                     cmd.ExecuteNonQuery();
+                                    insertedCount++;
+
+                                    // Показываем первые 3 и последнюю ось
+                                    if (i < 3 || i == axes.Count - 1)
+                                    {
+                                        System.Diagnostics.Debug.WriteLine($"[DB]       {i + 1}. '{axis.AxisName}': ({axis.X1:F1}, {axis.Y1:F1}) -> ({axis.X2:F1}, {axis.Y2:F1})");
+                                    }
+                                    else if (i == 3)
+                                    {
+                                        System.Diagnostics.Debug.WriteLine($"[DB]       ... вставка {axes.Count - 4} осей ...");
+                                    }
                                 }
                             }
 
                             transaction.Commit();
+                            System.Diagnostics.Debug.WriteLine($"[DB]     ✓✓✓ УСПЕХ! Транзакция завершена!");
+                            System.Diagnostics.Debug.WriteLine($"[DB]     ✓✓✓ Вставлено осей: {insertedCount}");
                         }
-                        catch
+                        catch (Exception ex)
                         {
                             transaction.Rollback();
-                            throw;
+                            System.Diagnostics.Debug.WriteLine($"[DB]     ✗✗✗ ОТКАТ ТРАНЗАКЦИИ!");
+                            System.Diagnostics.Debug.WriteLine($"[DB]     ✗ Ошибка: {ex.Message}");
+                            System.Diagnostics.Debug.WriteLine($"[DB]     ✗ StackTrace: {ex.StackTrace}");
+                            throw new Exception($"Ошибка вставки осей: {ex.Message}", ex);
                         }
                     }
                 }
             }
             catch (Exception ex)
             {
-                throw new Exception($"Ошибка добавления осей: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[DB]     ✗✗✗ КРИТИЧЕСКАЯ ОШИБКА!");
+                System.Diagnostics.Debug.WriteLine($"[DB]     {ex.Message}");
+                throw new Exception($"Ошибка добавления осей: {ex.Message}", ex);
             }
         }
 
-        /// <summary>
-        /// Получить все оси модели
-        /// </summary>
         public List<AxisData> GetAxesByModelId(int modelId)
         {
+            System.Diagnostics.Debug.WriteLine($"\n[DB] >>> GetAxesByModelId");
+            System.Diagnostics.Debug.WriteLine($"[DB]     modelId: {modelId}");
+
             var axes = new List<AxisData>();
 
             try
@@ -371,13 +380,41 @@ namespace getBIMChecker.Services
                         }
                     }
                 }
+
+                System.Diagnostics.Debug.WriteLine($"[DB]     ✓ Найдено осей в БД: {axes.Count}");
+                if (axes.Count > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[DB]     Примеры: {string.Join(", ", axes.Take(3).Select(a => a.AxisName))}");
+                }
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[DB]     ✗ ОШИБКА: {ex.Message}");
                 throw new Exception($"Ошибка получения осей: {ex.Message}");
             }
 
             return axes;
+        }
+
+        #endregion
+
+        #region Методы для ReportService (заглушки)
+
+        public int SaveCheckResult(int modelId, CheckType checkType, int totalAxesInModel, int totalReferenceAxes, int errorCount)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DB] SaveCheckResult (заглушка): errors={errorCount}");
+            return 1;
+        }
+
+        public void SaveAxisErrors(int checkResultId, List<AxisValidationResult> errors)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DB] SaveAxisErrors (заглушка): count={errors?.Count ?? 0}");
+        }
+
+        public List<CheckReport> GetCheckHistory(int modelId, DateTime? from = null, DateTime? to = null)
+        {
+            System.Diagnostics.Debug.WriteLine($"[DB] GetCheckHistory (заглушка)");
+            return new List<CheckReport>();
         }
 
         #endregion

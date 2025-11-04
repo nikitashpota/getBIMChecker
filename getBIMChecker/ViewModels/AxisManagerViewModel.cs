@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -142,6 +142,7 @@ namespace getBIMChecker.ViewModels
         public ICommand SelectAxisCommand { get; }
         public ICommand SendAxisCommand { get; }
         public ICommand RefreshCommand { get; }
+        public ICommand RunAxisCheckCommand { get; }
 
         #endregion
 
@@ -176,6 +177,7 @@ namespace getBIMChecker.ViewModels
             SelectAxisCommand = new RelayCommand(SelectAxis);
             SendAxisCommand = new RelayCommand(SendAxis, () => SelectedAxisCount > 0 && IsBound);
             RefreshCommand = new RelayCommand(LoadDirectories);
+            RunAxisCheckCommand = new RelayCommand(RunAxisCheck);
 
             // Загрузка данных
             ModelName = _modelBindingService.GetModelName(_document);
@@ -377,37 +379,66 @@ namespace getBIMChecker.ViewModels
         /// <summary>
         /// Отправить оси в БД
         /// </summary>
+        // ЗАМЕНИТЕ метод SendAxis в AxisManagerViewModel.cs на этот код с DEBUG логами
+
+        /// <summary>
+        /// Отправить оси в БД
+        /// </summary>
         private void SendAxis()
         {
+            System.Diagnostics.Debug.WriteLine("\n=========================================");
+            System.Diagnostics.Debug.WriteLine("=== НАЧАЛО SendAxis ===");
+            System.Diagnostics.Debug.WriteLine("=========================================\n");
+
+            System.Diagnostics.Debug.WriteLine($"[SendAxis] IsBound: {IsBound}");
+            System.Diagnostics.Debug.WriteLine($"[SendAxis] BoundDirectoryId: {BoundDirectoryId}");
+            System.Diagnostics.Debug.WriteLine($"[SendAxis] _selectedGrids: {_selectedGrids?.Count ?? 0}");
+
             if (!IsBound)
             {
+                System.Diagnostics.Debug.WriteLine("[SendAxis] ✗ Модель не привязана");
                 MessageBox.Show("Модель не привязана к директории", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             if (_selectedGrids == null || _selectedGrids.Count == 0)
             {
+                System.Diagnostics.Debug.WriteLine("[SendAxis] ✗ Оси не выбраны");
                 MessageBox.Show("Не выбраны оси", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             try
             {
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] >>> Сбор данных осей...");
+
                 // Собираем данные осей
                 var axisDataList = _axisCollectionService.CollectAxisData(_selectedGrids);
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ Собрано осей: {axisDataList.Count}");
+
+                if (axisDataList.Count > 0)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SendAxis] Первая ось: {axisDataList[0].AxisName} ({axisDataList[0].X1:F1}, {axisDataList[0].Y1:F1})");
+                }
 
                 // Валидация
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] >>> Валидация...");
                 if (!_axisCollectionService.ValidateAxisData(axisDataList, out string errorMessage))
                 {
+                    System.Diagnostics.Debug.WriteLine($"[SendAxis] ✗ Ошибка валидации: {errorMessage}");
                     MessageBox.Show($"Ошибка валидации осей:\n{errorMessage}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ Валидация пройдена");
 
                 // Проверка дубликатов
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] >>> Проверка дубликатов...");
                 var duplicates = _axisCollectionService.FindDuplicateAxisNames(axisDataList);
                 if (duplicates.Count > 0)
                 {
                     var duplicatesList = string.Join(", ", duplicates);
+                    System.Diagnostics.Debug.WriteLine($"[SendAxis] ⚠ Найдены дубликаты: {duplicatesList}");
+
                     var result = MessageBox.Show(
                         $"Найдены оси с одинаковыми именами: {duplicatesList}\n\nПродолжить?",
                         "Предупреждение",
@@ -415,20 +446,53 @@ namespace getBIMChecker.ViewModels
                         MessageBoxImage.Warning);
 
                     if (result == MessageBoxResult.No)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[SendAxis] Отменено пользователем");
                         return;
+                    }
                 }
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ Проверка дубликатов завершена");
 
                 // Создаем или обновляем модель в БД
+                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Создание/обновление модели...");
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] ModelName: {ModelName}");
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] BoundDirectoryId: {BoundDirectoryId.Value}");
+
                 int modelId = _databaseService.CreateOrUpdateModel(ModelName, BoundDirectoryId.Value);
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ ModelId получен: {modelId}");
 
                 // Удаляем старые оси модели
+                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Удаление старых осей...");
                 _databaseService.DeleteAxesByModelId(modelId);
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ Старые оси удалены");
 
                 // Добавляем новые оси
+                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Добавление новых осей...");
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] Вызов InsertAxes с {axisDataList.Count} осями");
+
                 _databaseService.InsertAxes(modelId, axisDataList);
 
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓✓✓ InsertAxes выполнен успешно!");
+
+                // Проверяем что вставилось
+                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Проверка вставки...");
+                var insertedAxes = _databaseService.GetAxesByModelId(modelId);
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] Проверка: в БД теперь {insertedAxes.Count} осей");
+
+                if (insertedAxes.Count != axisDataList.Count)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SendAxis] ⚠⚠⚠ ВНИМАНИЕ! Несоответствие количества!");
+                    System.Diagnostics.Debug.WriteLine($"[SendAxis] Отправлено: {axisDataList.Count}, В БД: {insertedAxes.Count}");
+                }
+
                 // Обновляем список директорий (для обновления количества осей)
+                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Обновление списка директорий...");
                 LoadDirectories();
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ Список обновлен");
+
+                System.Diagnostics.Debug.WriteLine($"\n=========================================");
+                System.Diagnostics.Debug.WriteLine($"=== УСПЕХ! Отправлено осей: {axisDataList.Count} ===");
+                System.Diagnostics.Debug.WriteLine($"=========================================\n");
 
                 MessageBox.Show($"Успешно отправлено осей: {axisDataList.Count}", "Успех", MessageBoxButton.OK, MessageBoxImage.Information);
                 StatusMessage = $"Отправлено осей: {axisDataList.Count}";
@@ -439,7 +503,88 @@ namespace getBIMChecker.ViewModels
             }
             catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"\n=========================================");
+                System.Diagnostics.Debug.WriteLine($"=== ОШИБКА В SendAxis ===");
+                System.Diagnostics.Debug.WriteLine($"=========================================");
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] Тип: {ex.GetType().Name}");
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] Сообщение: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"[SendAxis] StackTrace:\n{ex.StackTrace}");
+
+                if (ex.InnerException != null)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[SendAxis] InnerException: {ex.InnerException.Message}");
+                }
+
+                System.Diagnostics.Debug.WriteLine($"=========================================\n");
+
                 MessageBox.Show($"Ошибка отправки осей:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>
+        /// Запустить проверку осей
+        /// </summary>
+        private void RunAxisCheck()
+        {
+            if (!IsBound)
+            {
+                MessageBox.Show(
+                    "Модель не привязана к директории", 
+                    "Ошибка", 
+                    MessageBoxButton.OK, 
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            try
+            {
+                // 1. Получить эталонные оси
+                var modelId = _databaseService.CreateOrUpdateModel(ModelName, BoundDirectoryId.Value);
+                var referenceAxes = _databaseService.GetAxesByModelId(modelId);
+
+                if (referenceAxes.Count == 0)
+                {
+                    MessageBox.Show(
+                        "В базе данных нет эталонных осей для данной директории.\n\n" +
+                        "Сначала отправьте эталонные оси в БД.", 
+                        "Нет эталонных осей", 
+                        MessageBoxButton.OK, 
+                        MessageBoxImage.Warning);
+                    return;
+                }
+
+                // 2. Запустить проверку
+                var validationService = new AxisValidationService();
+                var results = validationService.ValidateAllAxes(_document, referenceAxes);
+
+                // Подсчитываем количество осей в модели
+                var axisCollectionService = new AxisCollectionService();
+                var modelGrids = axisCollectionService.GetAllGridsFromDocument(_document);
+                int totalAxesInModel = modelGrids.Count;
+
+                // 3. Сохранить результаты в БД
+                var reportService = new ReportService(_databaseService);
+                reportService.SaveCheckResults(modelId, CheckType.Manual, results, totalAxesInModel, referenceAxes.Count);
+
+                // 4. Создать отчет
+                var directoryCode = _modelBindingService.GetBoundDirectoryCode(_document);
+                var report = reportService.GenerateReport(results, ModelName, directoryCode, totalAxesInModel, referenceAxes.Count);
+
+                // 5. Показать окно с результатами
+                var viewModel = new CheckResultsViewModel(report, _uiDocument);
+                var window = new Views.CheckResultsWindow
+                {
+                    DataContext = viewModel
+                };
+                window.ShowDialog();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Ошибка при проверке осей:\n{ex.Message}", 
+                    "Ошибка", 
+                    MessageBoxButton.OK, 
+                    MessageBoxImage.Error);
             }
         }
 

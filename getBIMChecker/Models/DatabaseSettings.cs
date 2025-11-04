@@ -1,4 +1,4 @@
-﻿namespace getBIMChecker.Models
+namespace getBIMChecker.Models
 {
     /// <summary>
     /// Настройки подключения к базе данных MySQL

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using MySql.Data.MySqlClient;
 using getBIMChecker.Models;
 
@@ -109,6 +109,39 @@ namespace getBIMChecker.Services
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
 
                 ExecuteNonQuery(connection, createAxesTable);
+
+                // Создаем таблицу AxisCheckResults
+                string createAxisCheckResultsTable = @"
+                    CREATE TABLE IF NOT EXISTS AxisCheckResults (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        model_id INT NOT NULL,
+                        check_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        check_type ENUM('manual', 'auto') NOT NULL,
+                        total_axes_in_model INT NOT NULL,
+                        total_reference_axes INT NOT NULL,
+                        error_count INT NOT NULL,
+                        FOREIGN KEY (model_id) REFERENCES Models(id) ON DELETE CASCADE,
+                        INDEX idx_model_date (model_id, check_date)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+
+                ExecuteNonQuery(connection, createAxisCheckResultsTable);
+
+                // Создаем таблицу AxisErrors
+                string createAxisErrorsTable = @"
+                    CREATE TABLE IF NOT EXISTS AxisErrors (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        check_result_id INT NOT NULL,
+                        axis_name VARCHAR(255) NOT NULL,
+                        element_id BIGINT NULL,
+                        error_types VARCHAR(500) NOT NULL,
+                        deviation_mm DOUBLE NULL,
+                        is_pinned BOOLEAN NULL,
+                        workset_name VARCHAR(255) NULL,
+                        FOREIGN KEY (check_result_id) REFERENCES AxisCheckResults(id) ON DELETE CASCADE,
+                        INDEX idx_check_result (check_result_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+
+                ExecuteNonQuery(connection, createAxisErrorsTable);
             }
         }
 
