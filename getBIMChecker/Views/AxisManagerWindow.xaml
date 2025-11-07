@@ -210,12 +210,12 @@
                 <TextBlock Grid.Row="0" Text="Управление директориями" Style="{StaticResource RevitSectionHeaderStyle}"/>
 
                 <Button Grid.Row="2"
-                        Content="Создать новую директорию"
+                        Content="Создать директорию"
                         Command="{Binding CreateDirectoryCommand}"
                         Style="{StaticResource RevitApplyButtonStyle}"
                         HorizontalAlignment="Left"
                         VerticalAlignment="Center"
-                        Width="200"/>
+                        Width="150"/>
             </Grid>
         </Border>
 
@@ -318,7 +318,7 @@
                                 Content="Выбрать оси в модели"
                                 Command="{Binding SelectAxisCommand}"
                                 Style="{StaticResource RevitApplyButtonStyle}"
-                                Width="180"/>
+                                Width="150"/>
 
                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                             <TextBlock Text="Выбрано осей: " Style="{StaticResource RevitLabelStyle}"/>
@@ -337,10 +337,10 @@
                         </Grid.ColumnDefinitions>
 
                         <Button Grid.Column="0" 
-                                Content="Отправить оси в БД как эталонные"
+                                Content="Отправить оси в БД"
                                 Command="{Binding SendAxisCommand}"
                                 Style="{StaticResource RevitApplyButtonStyle}"
-                                Width="250"/>
+                                Width="150"/>
 
                         <TextBlock Grid.Column="2"
                                    Text="Эти оси станут эталоном для всех моделей директории"
@@ -374,10 +374,10 @@
                     </Grid.ColumnDefinitions>
 
                     <Button Grid.Column="0"
-                            Content="Запустить проверку осей"
+                            Content="Проверка осей"
                             Command="{Binding RunAxisCheckCommand}"
                             Style="{StaticResource RevitApplyButtonStyle}"
-                            Width="200"/>
+                            Width="150"/>
 
                     <TextBlock Grid.Column="2"
                                Text="Сравнивает оси текущей модели с эталонными осями директории"
