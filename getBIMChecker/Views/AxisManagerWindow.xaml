@@ -5,9 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
         Title="Управление эталонными осями" 
-        Height="950" 
+        Height="720" 
         Width="900"
-        MinHeight="700"
+        MinHeight="650"
         MinWidth="800"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
@@ -54,10 +54,10 @@
             <Setter Property="Foreground" Value="Black"/>
             <Setter Property="BorderBrush" Value="#FF5D5D5D"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Padding" Value="10,2"/>
             <Setter Property="FontSize" Value="11"/>
             <Setter Property="FontFamily" Value="Segoe UI"/>
-            <Setter Property="Height" Value="28"/>
+            <Setter Property="Height" Value="20"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -80,21 +80,6 @@
                     </ControlTemplate>
                 </Setter.Value>
             </Setter>
-        </Style>
-
-        <Style x:Key="RevitActionButtonStyle" TargetType="Button" BasedOn="{StaticResource RevitApplyButtonStyle}">
-            <Setter Property="Background" Value="#4CAF50"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Setter Property="Background" Value="#45A049"/>
-                </Trigger>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Background" Value="#CCCCCC"/>
-                    <Setter Property="Foreground" Value="#666666"/>
-                </Trigger>
-            </Style.Triggers>
         </Style>
 
         <Style x:Key="RevitSeparator" TargetType="Separator">
@@ -146,194 +131,183 @@
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsBound}" Value="True">
                     <Setter Property="FontWeight" Value="Bold"/>
-                    <Setter Property="Background" Value="#E8F4F8"/>
+                    <Setter Property="Background" Value="#F0F8FF"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
 
         <!-- Стиль для статуса привязки -->
         <Style x:Key="BindingStatusStyle" TargetType="TextBlock" BasedOn="{StaticResource RevitLabelStyle}">
-            <Setter Property="Foreground" Value="Red"/>
+            <Setter Property="Foreground" Value="#CC0000"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsBound}" Value="True">
-                    <Setter Property="Foreground" Value="Green"/>
+                    <Setter Property="Foreground" Value="#008000"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
     </Window.Resources>
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <Grid Margin="8">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="5"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="5"/>
-                <RowDefinition Height="*" MinHeight="200"/>
-                <RowDefinition Height="5"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="5"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="5"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="5"/>
-                <RowDefinition Height="Auto"/>
-            </Grid.RowDefinitions>
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="0.6*" MinHeight="75"/>
+            <!-- Информация о модели -->
+            <RowDefinition Height="5"/>
+            <RowDefinition Height="0.6*" MinHeight="85"/>
+            <!-- Управление директориями -->
+            <RowDefinition Height="5"/>
+            <RowDefinition Height="3*" MinHeight="200"/>
+            <!-- Таблица директорий (ОСНОВНАЯ ВЫСОТА) -->
+            <RowDefinition Height="5"/>
+            <RowDefinition Height="1.2*" MinHeight="110"/>
+            <!-- Управление эталонными осями -->
+            <RowDefinition Height="5"/>
+            <RowDefinition Height="0.8*" MinHeight="80"/>
+            <!-- Проверка осей -->
+        </Grid.RowDefinitions>
 
-            <!-- Model Information Section -->
-            <Border Grid.Row="0" Style="{StaticResource RevitCardStyle}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="5"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+        <!-- Информация о модели -->
+        <Border Grid.Row="0" Style="{StaticResource RevitCardStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="5"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="Информация о модели" Style="{StaticResource RevitSectionHeaderStyle}"/>
+                <TextBlock Grid.Row="0" Text="Информация о модели" Style="{StaticResource RevitSectionHeaderStyle}"/>
 
-                    <Grid Grid.Row="2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="5"/>
-                            <RowDefinition Height="Auto"/>
-                        </Grid.RowDefinitions>
+                <Grid Grid.Row="2" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="20"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-                        <!-- Model Name -->
-                        <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal">
-                            <TextBlock Text="Текущая модель:" Style="{StaticResource RevitLabelStyle}" Width="130"/>
-                            <TextBlock Text="{Binding ModelName}" Style="{StaticResource RevitLabelStyle}" FontWeight="SemiBold"/>
-                        </StackPanel>
+                    <TextBlock Grid.Column="0" Text="Текущая модель:" Style="{StaticResource RevitLabelStyle}" Width="120"/>
+                    <TextBlock Grid.Column="1" Text="{Binding ModelName}" Style="{StaticResource RevitLabelStyle}" FontWeight="SemiBold"/>
 
-                        <!-- Binding Status -->
-                        <StackPanel Grid.Row="0" Grid.Column="1" Orientation="Horizontal">
-                            <TextBlock Text="Статус привязки:" Style="{StaticResource RevitLabelStyle}" Width="130"/>
-                            <TextBlock Text="{Binding StatusMessage}" Style="{StaticResource BindingStatusStyle}"/>
-                        </StackPanel>
-                    </Grid>
+                    <TextBlock Grid.Column="3" Text="Статус привязки:" Style="{StaticResource RevitLabelStyle}" Width="120"/>
+                    <TextBlock Grid.Column="4" Text="{Binding StatusMessage}" Style="{StaticResource BindingStatusStyle}"/>
                 </Grid>
-            </Border>
+            </Grid>
+        </Border>
 
-            <!-- Separator -->
-            <Separator Grid.Row="1" Style="{StaticResource RevitSeparator}"/>
+        <!-- Separator -->
+        <Separator Grid.Row="1" Style="{StaticResource RevitSeparator}"/>
 
-            <!-- Directory Management Section -->
-            <Border Grid.Row="2" Style="{StaticResource RevitCardStyle}">
-                <Grid>
+        <!-- Управление директориями -->
+        <Border Grid.Row="2" Style="{StaticResource RevitCardStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="5"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="Управление директориями" Style="{StaticResource RevitSectionHeaderStyle}"/>
+
+                <Button Grid.Row="2"
+                        Content="Создать новую директорию"
+                        Command="{Binding CreateDirectoryCommand}"
+                        Style="{StaticResource RevitApplyButtonStyle}"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Width="200"/>
+            </Grid>
+        </Border>
+
+        <!-- Separator -->
+        <Separator Grid.Row="3" Style="{StaticResource RevitSeparator}"/>
+
+        <!-- Директории проектов -->
+        <Border Grid.Row="4" Style="{StaticResource RevitCardStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="5"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" 
+                           Text="{Binding Directories.Count, StringFormat='Директории проектов ({0})', Mode=OneWay}"
+                           Style="{StaticResource RevitSectionHeaderStyle}"/>
+
+                <DataGrid Grid.Row="2" 
+                          ItemsSource="{Binding Directories}" 
+                          SelectedItem="{Binding SelectedDirectory, Mode=TwoWay}"
+                          Style="{StaticResource DataGridStyle}"
+                          RowStyle="{StaticResource BoundDirectoryRowStyle}"
+                          VerticalScrollBarVisibility="Auto">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Код директории" 
+                                            Binding="{Binding Code}" 
+                                            Width="2*"/>
+                        <DataGridTextColumn Header="Количество осей" 
+                                            Binding="{Binding AxisCount}" 
+                                            Width="*"/>
+                        <DataGridTextColumn Header="Дата создания" 
+                                            Binding="{Binding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}" 
+                                            Width="*"/>
+                        <DataGridTemplateColumn Header="Действия" Width="280">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                        <Button Content="Привязать" 
+                                                Width="90" 
+                                                Margin="2,0"
+                                                Style="{StaticResource RevitButtonStyle}"
+                                                Command="{Binding DataContext.BindDirectoryCommand, 
+                                                         RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"/>
+                                        <Button Content="Изменить" 
+                                                Width="90" 
+                                                Margin="2,0"
+                                                Style="{StaticResource RevitButtonStyle}"
+                                                Command="{Binding DataContext.EditDirectoryCommand, 
+                                                         RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"/>
+                                        <Button Content="Удалить" 
+                                                Width="80" 
+                                                Margin="2,0"
+                                                Style="{StaticResource RevitButtonStyle}"
+                                                Command="{Binding DataContext.DeleteDirectoryCommand, 
+                                                         RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"/>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
+        <!-- Separator -->
+        <Separator Grid.Row="5" Style="{StaticResource RevitSeparator}"/>
+
+        <!-- Управление эталонными осями -->
+        <Border Grid.Row="6" Style="{StaticResource RevitCardStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="5"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="Управление эталонными осями" Style="{StaticResource RevitSectionHeaderStyle}"/>
+
+                <Grid Grid.Row="2">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="5"/>
-                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="8"/>
+                        <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="Управление директориями" Style="{StaticResource RevitSectionHeaderStyle}"/>
-
-                    <Grid Grid.Row="2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="10"/>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="10"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-
-                        <Button Grid.Column="0" 
-                                Content="Создать директорию"
-                                Command="{Binding CreateDirectoryCommand}"
-                                Style="{StaticResource RevitApplyButtonStyle}"
-                                HorizontalAlignment="Left"
-                                Width="180"/>
-                    </Grid>
-                </Grid>
-            </Border>
-
-            <!-- Separator -->
-            <Separator Grid.Row="3" Style="{StaticResource RevitSeparator}"/>
-
-            <!-- Directories Table Section -->
-            <Border Grid.Row="4" Style="{StaticResource RevitCardStyle}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="5"/>
-                        <RowDefinition Height="*" MinHeight="180"/>
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Grid.Row="0" 
-                               Text="{Binding Directories.Count, StringFormat='Директории проектов ({0})', Mode=OneWay}"
-                               Style="{StaticResource RevitSectionHeaderStyle}"/>
-
-                    <DataGrid Grid.Row="2" 
-                              ItemsSource="{Binding Directories}" 
-                              SelectedItem="{Binding SelectedDirectory, Mode=TwoWay}"
-                              Style="{StaticResource DataGridStyle}"
-                              RowStyle="{StaticResource BoundDirectoryRowStyle}">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Код директории" 
-                                                Binding="{Binding Code}" 
-                                                Width="2*"/>
-                            <DataGridTextColumn Header="Количество осей" 
-                                                Binding="{Binding AxisCount}" 
-                                                Width="*"/>
-                            <DataGridTextColumn Header="Дата создания" 
-                                                Binding="{Binding CreatedAt, StringFormat=dd.MM.yyyy HH:mm}" 
-                                                Width="*"/>
-                            <DataGridTemplateColumn Header="Действия" Width="280">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                            <Button Content="Привязать" 
-                                                    Width="90" 
-                                                    Height="22"
-                                                    Margin="2"
-                                                    Style="{StaticResource RevitButtonStyle}"
-                                                    Command="{Binding DataContext.BindDirectoryCommand, 
-                                                             RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"/>
-                                            <Button Content="✏️ Изменить" 
-                                                    Width="90" 
-                                                    Height="22"
-                                                    Margin="2"
-                                                    Style="{StaticResource RevitButtonStyle}"
-                                                    Command="{Binding DataContext.EditDirectoryCommand, 
-                                                             RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"/>
-                                            <Button Content="Удалить" 
-                                                    Width="80" 
-                                                    Height="22"
-                                                    Margin="2"
-                                                    Style="{StaticResource RevitButtonStyle}"
-                                                    Command="{Binding DataContext.DeleteDirectoryCommand, 
-                                                             RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"/>
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Grid>
-            </Border>
-
-            <!-- Separator -->
-            <Separator Grid.Row="5" Style="{StaticResource RevitSeparator}"/>
-
-            <!-- Axis Selection Section -->
-            <Border Grid.Row="6" Style="{StaticResource RevitCardStyle}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="5"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
-
-                    <TextBlock Grid.Row="0" Text="Выбор осей" Style="{StaticResource RevitSectionHeaderStyle}"/>
-
-                    <Grid Grid.Row="2">
+                    <!-- Шаг 1: Выбор осей -->
+                    <Grid Grid.Row="0" VerticalAlignment="Center">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="15"/>
@@ -350,113 +324,68 @@
                             <TextBlock Text="Выбрано осей: " Style="{StaticResource RevitLabelStyle}"/>
                             <TextBlock Text="{Binding SelectedAxisCount}" 
                                        Style="{StaticResource RevitLabelStyle}" 
-                                       FontWeight="SemiBold"
-                                       Foreground="#2196F3"/>
+                                       FontWeight="Bold"/>
                         </StackPanel>
                     </Grid>
-                </Grid>
-            </Border>
 
-            <!-- Separator -->
-            <Separator Grid.Row="7" Style="{StaticResource RevitSeparator}"/>
+                    <!-- Шаг 2: Отправка -->
+                    <Grid Grid.Row="2" VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="15"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
 
-            <!-- НОВАЯ СЕКЦИЯ: Проверка осей -->
-            <Border Grid.Row="8" Style="{StaticResource RevitCardStyle}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="5"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+                        <Button Grid.Column="0" 
+                                Content="Отправить оси в БД как эталонные"
+                                Command="{Binding SendAxisCommand}"
+                                Style="{StaticResource RevitApplyButtonStyle}"
+                                Width="250"/>
 
-                    <TextBlock Grid.Row="0" 
-                               Text="Проверка осей" 
-                               Style="{StaticResource RevitSectionHeaderStyle}"/>
-
-                    <StackPanel Grid.Row="2" Orientation="Horizontal">
-                        <Button Content="Запустить проверку осей"
-                                Command="{Binding RunAxisCheckCommand}"
-                                Style="{StaticResource RevitActionButtonStyle}"
-                                Width="200" Height="32"/>
-
-                        <TextBlock Text="Проверяет соответствие осей эталонным"
+                        <TextBlock Grid.Column="2"
+                                   Text="Эти оси станут эталоном для всех моделей директории"
                                    Style="{StaticResource RevitLabelStyle}"
                                    Foreground="Gray"
-                                   VerticalAlignment="Center"
-                                   Margin="15,0,0,0"/>
-                    </StackPanel>
+                                   VerticalAlignment="Center"/>
+                    </Grid>
                 </Grid>
-            </Border>
+            </Grid>
+        </Border>
 
-            <!-- Separator -->
-            <Separator Grid.Row="9" Style="{StaticResource RevitSeparator}"/>
+        <!-- Separator -->
+        <Separator Grid.Row="7" Style="{StaticResource RevitSeparator}"/>
 
-            <!-- Summary Section -->
-            <Border Grid.Row="10" Style="{StaticResource RevitCardStyle}">
-                <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="5"/>
-                        <RowDefinition Height="Auto"/>
-                    </Grid.RowDefinitions>
+        <!-- Проверка осей модели -->
+        <Border Grid.Row="8" Style="{StaticResource RevitCardStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="5"/>
+                    <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="Сводка" Style="{StaticResource RevitSectionHeaderStyle}"/>
+                <TextBlock Grid.Row="0" Text="Проверка осей модели" Style="{StaticResource RevitSectionHeaderStyle}"/>
 
-                    <StackPanel Grid.Row="2" Orientation="Vertical">
-                        <StackPanel Orientation="Horizontal" Margin="0,2">
-                            <TextBlock Text="Готовность к отправке: " Style="{StaticResource RevitLabelStyle}"/>
-                            <TextBlock>
-                                <TextBlock.Style>
-                                    <Style TargetType="TextBlock" BasedOn="{StaticResource RevitLabelStyle}">
-                                        <Setter Property="Text" Value="Не готово"/>
-                                        <Setter Property="Foreground" Value="Red"/>
-                                        <Setter Property="FontWeight" Value="SemiBold"/>
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding IsBound}" Value="True">
-                                                <Setter Property="Text" Value="Готово"/>
-                                                <Setter Property="Foreground" Value="Green"/>
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </TextBlock.Style>
-                            </TextBlock>
-                        </StackPanel>
-
-                        <TextBlock Style="{StaticResource RevitLabelStyle}" Margin="0,5,0,2" Foreground="Gray" FontStyle="Italic">
-                            <Run Text="💡 Подсказка: Для отправки осей необходимо:"/>
-                        </TextBlock>
-                        <TextBlock Style="{StaticResource RevitLabelStyle}" Margin="15,2,0,2" Foreground="Gray" FontStyle="Italic">
-                            <Run Text="1. Привязать модель к директории"/>
-                        </TextBlock>
-                        <TextBlock Style="{StaticResource RevitLabelStyle}" Margin="15,2,0,2" Foreground="Gray" FontStyle="Italic">
-                            <Run Text="2. Выбрать оси в модели (минимум 1)"/>
-                        </TextBlock>
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <!-- Separator -->
-            <Separator Grid.Row="11" Style="{StaticResource RevitSeparator}"/>
-
-            <!-- Action Buttons Section -->
-            <Border Grid.Row="12" Style="{StaticResource RevitCardStyle}">
-                <Grid>
+                <Grid Grid.Row="2" VerticalAlignment="Center">
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="15"/>
                         <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="10"/>
-                        <ColumnDefinition Width="Auto"/>
-                        <ColumnDefinition Width="10"/>
-                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
 
-                    <Button Grid.Column="2" 
-                            Content="Отправить оси в БД"
-                            Command="{Binding SendAxisCommand}"
-                            Style="{StaticResource RevitActionButtonStyle}"
-                            Width="180"
-                            Height="32"/>
+                    <Button Grid.Column="0"
+                            Content="Запустить проверку осей"
+                            Command="{Binding RunAxisCheckCommand}"
+                            Style="{StaticResource RevitApplyButtonStyle}"
+                            Width="200"/>
+
+                    <TextBlock Grid.Column="2"
+                               Text="Сравнивает оси текущей модели с эталонными осями директории"
+                               Style="{StaticResource RevitLabelStyle}"
+                               Foreground="Gray"
+                               VerticalAlignment="Center"/>
                 </Grid>
-            </Border>
-        </Grid>
-    </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
 </Window>
