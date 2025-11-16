@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MySql.Data.MySqlClient;
 using getBIMChecker.Models;
 
@@ -343,7 +344,7 @@ namespace getBIMChecker.Services
                             transaction.Rollback();
                             System.Diagnostics.Debug.WriteLine($"[DB]     ✗✗✗ ОТКАТ ТРАНЗАКЦИИ!");
                             System.Diagnostics.Debug.WriteLine($"[DB]     ✗ Ошибка: {ex.Message}");
-                            System.Diagnostics.Debug.WriteLine($"[DB]     ✗ StackTrace: {ex.StackTrace}");
+                            System.Diagnostics.Debug.WriteLine($"[DB]     ✗ StackTrace:\n{ex.StackTrace}");
                             throw new Exception($"Ошибка вставки осей: {ex.Message}", ex);
                         }
                     }
@@ -482,23 +483,244 @@ namespace getBIMChecker.Services
 
         #endregion
 
-        #region Методы для ReportService (заглушки)
+        #region Сохранение результатов проверки
 
+        /// <summary>
+        /// Сохранить результат проверки осей в БД
+        /// </summary>
         public int SaveCheckResult(int modelId, CheckType checkType, int totalAxesInModel, int totalReferenceAxes, int errorCount)
         {
-            System.Diagnostics.Debug.WriteLine($"[DB] SaveCheckResult (заглушка): errors={errorCount}");
-            return 1;
+            System.Diagnostics.Debug.WriteLine($"\n[DB] >>> SaveCheckResult");
+            System.Diagnostics.Debug.WriteLine($"[DB]     modelId: {modelId}");
+            System.Diagnostics.Debug.WriteLine($"[DB]     checkType: {checkType}");
+            System.Diagnostics.Debug.WriteLine($"[DB]     totalAxesInModel: {totalAxesInModel}");
+            System.Diagnostics.Debug.WriteLine($"[DB]     totalReferenceAxes: {totalReferenceAxes}");
+            System.Diagnostics.Debug.WriteLine($"[DB]     errorCount: {errorCount}");
+
+            try
+            {
+                using (var connection = new MySqlConnection(_settings.GetConnectionString()))
+                {
+                    connection.Open();
+
+                    // Конвертируем CheckType в строку для ENUM('manual', 'auto')
+                    string checkTypeStr = checkType == CheckType.Manual ? "manual" : "auto";
+
+                    string query = @"
+                        INSERT INTO AxisCheckResults 
+                        (model_id, check_type, total_axes_in_model, total_reference_axes, error_count)
+                        VALUES 
+                        (@modelId, @checkType, @totalAxesInModel, @totalReferenceAxes, @errorCount)";
+
+                    using (var cmd = new MySqlCommand(query, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@modelId", modelId);
+                        cmd.Parameters.AddWithValue("@checkType", checkTypeStr);
+                        cmd.Parameters.AddWithValue("@totalAxesInModel", totalAxesInModel);
+                        cmd.Parameters.AddWithValue("@totalReferenceAxes", totalReferenceAxes);
+                        cmd.Parameters.AddWithValue("@errorCount", errorCount);
+
+                        cmd.ExecuteNonQuery();
+                        int checkResultId = (int)cmd.LastInsertedId;
+
+                        System.Diagnostics.Debug.WriteLine($"[DB]     ✓ Результат проверки сохранен: ID={checkResultId}");
+                        return checkResultId;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DB]     ✗ ОШИБКА: {ex.Message}");
+                throw new Exception($"Ошибка сохранения результата проверки: {ex.Message}");
+            }
         }
 
+        /// <summary>
+        /// Сохранить детальные ошибки проверки осей
+        /// </summary>
         public void SaveAxisErrors(int checkResultId, List<AxisValidationResult> errors)
         {
-            System.Diagnostics.Debug.WriteLine($"[DB] SaveAxisErrors (заглушка): count={errors?.Count ?? 0}");
+            System.Diagnostics.Debug.WriteLine($"\n[DB] >>> SaveAxisErrors");
+            System.Diagnostics.Debug.WriteLine($"[DB]     checkResultId: {checkResultId}");
+            System.Diagnostics.Debug.WriteLine($"[DB]     errors.Count: {errors?.Count ?? 0}");
+
+            if (errors == null || errors.Count == 0)
+            {
+                System.Diagnostics.Debug.WriteLine("[DB]     ⚠ Список ошибок пуст!");
+                return;
+            }
+
+            try
+            {
+                using (var connection = new MySqlConnection(_settings.GetConnectionString()))
+                {
+                    connection.Open();
+
+                    string query = @"
+                        INSERT INTO AxisErrors 
+                        (check_result_id, axis_name, element_id, error_types, deviation_mm, is_pinned, workset_name)
+                        VALUES 
+                        (@checkResultId, @axisName, @elementId, @errorTypes, @deviationMm, @isPinned, @worksetName)";
+
+                    using (var transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            int insertedCount = 0;
+
+                            foreach (var error in errors)
+                            {
+                                using (var cmd = new MySqlCommand(query, connection, transaction))
+                                {
+                                    cmd.Parameters.AddWithValue("@checkResultId", checkResultId);
+                                    cmd.Parameters.AddWithValue("@axisName", error.AxisName);
+
+                                    // ElementId может быть NULL для "отсутствует в модели"
+                                    if (error.ElementId.HasValue)
+                                        cmd.Parameters.AddWithValue("@elementId", error.ElementId.Value);
+                                    else
+                                        cmd.Parameters.AddWithValue("@elementId", DBNull.Value);
+
+                                    // Типы ошибок через ";"
+                                    string errorTypesStr = string.Join("; ", error.ErrorTypes.Select(GetErrorTypeString));
+                                    cmd.Parameters.AddWithValue("@errorTypes", errorTypesStr);
+
+                                    // Смещение
+                                    if (error.DeviationMm.HasValue)
+                                        cmd.Parameters.AddWithValue("@deviationMm", error.DeviationMm.Value);
+                                    else
+                                        cmd.Parameters.AddWithValue("@deviationMm", DBNull.Value);
+
+                                    // Закрепление
+                                    if (error.IsPinned.HasValue)
+                                        cmd.Parameters.AddWithValue("@isPinned", error.IsPinned.Value);
+                                    else
+                                        cmd.Parameters.AddWithValue("@isPinned", DBNull.Value);
+
+                                    // Рабочий набор
+                                    if (!string.IsNullOrEmpty(error.WorksetName))
+                                        cmd.Parameters.AddWithValue("@worksetName", error.WorksetName);
+                                    else
+                                        cmd.Parameters.AddWithValue("@worksetName", DBNull.Value);
+
+                                    cmd.ExecuteNonQuery();
+                                    insertedCount++;
+                                }
+                            }
+
+                            transaction.Commit();
+                            System.Diagnostics.Debug.WriteLine($"[DB]     ✓✓✓ Сохранено ошибок: {insertedCount}");
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            System.Diagnostics.Debug.WriteLine($"[DB]     ✗✗✗ ОТКАТ ТРАНЗАКЦИИ!");
+                            throw new Exception($"Ошибка сохранения ошибок: {ex.Message}", ex);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DB]     ✗ ОШИБКА: {ex.Message}");
+                throw new Exception($"Ошибка сохранения детальных ошибок: {ex.Message}");
+            }
         }
 
+        /// <summary>
+        /// Конвертация ErrorType в строку для БД
+        /// </summary>
+        private string GetErrorTypeString(ErrorType type)
+        {
+            return type switch
+            {
+                ErrorType.Deviation => "Отклонение от эталона",
+                ErrorType.NonParallel => "Непараллельность",
+                ErrorType.NotPinned => "Не закреплена",
+                ErrorType.WrongWorkset => "Неправильный рабочий набор",
+                ErrorType.NotInReference => "Отсутствует в эталоне",
+                ErrorType.NotInModel => "Отсутствует в модели",
+                _ => "Неизвестная ошибка"
+            };
+        }
+
+        /// <summary>
+        /// Получить историю проверок модели
+        /// </summary>
         public List<CheckReport> GetCheckHistory(int modelId, DateTime? from = null, DateTime? to = null)
         {
-            System.Diagnostics.Debug.WriteLine($"[DB] GetCheckHistory (заглушка)");
-            return new List<CheckReport>();
+            System.Diagnostics.Debug.WriteLine($"\n[DB] >>> GetCheckHistory");
+            System.Diagnostics.Debug.WriteLine($"[DB]     modelId: {modelId}");
+
+            var reports = new List<CheckReport>();
+
+            try
+            {
+                using (var connection = new MySqlConnection(_settings.GetConnectionString()))
+                {
+                    connection.Open();
+
+                    string query = @"
+                        SELECT 
+                            acr.id,
+                            acr.check_date,
+                            acr.check_type,
+                            acr.total_axes_in_model,
+                            acr.total_reference_axes,
+                            acr.error_count,
+                            m.model_name,
+                            d.code AS directory_code
+                        FROM AxisCheckResults acr
+                        JOIN Models m ON acr.model_id = m.id
+                        JOIN Directories d ON m.directory_id = d.id
+                        WHERE acr.model_id = @modelId";
+
+                    if (from.HasValue)
+                        query += " AND acr.check_date >= @from";
+                    if (to.HasValue)
+                        query += " AND acr.check_date <= @to";
+
+                    query += " ORDER BY acr.check_date DESC";
+
+                    using (var cmd = new MySqlCommand(query, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@modelId", modelId);
+                        if (from.HasValue)
+                            cmd.Parameters.AddWithValue("@from", from.Value);
+                        if (to.HasValue)
+                            cmd.Parameters.AddWithValue("@to", to.Value);
+
+                        using (var reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                var report = new CheckReport
+                                {
+                                    Id = reader.GetInt32("id"),
+                                    CheckDate = reader.GetDateTime("check_date"),
+                                    CheckType = reader.GetString("check_type") == "manual" ? CheckType.Manual : CheckType.Auto,
+                                    TotalAxesInModel = reader.GetInt32("total_axes_in_model"),
+                                    TotalReferenceAxes = reader.GetInt32("total_reference_axes"),
+                                    ErrorCount = reader.GetInt32("error_count"),
+                                    ModelName = reader.GetString("model_name"),
+                                    DirectoryCode = reader.GetString("directory_code")
+                                };
+
+                                reports.Add(report);
+                            }
+                        }
+                    }
+                }
+
+                System.Diagnostics.Debug.WriteLine($"[DB]     ✓ Найдено записей истории: {reports.Count}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DB]     ✗ ОШИБКА: {ex.Message}");
+                throw new Exception($"Ошибка получения истории проверок: {ex.Message}");
+            }
+
+            return reports;
         }
 
         #endregion
