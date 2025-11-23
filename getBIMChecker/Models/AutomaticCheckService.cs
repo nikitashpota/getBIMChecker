@@ -12,7 +12,7 @@ namespace getBIMChecker.Services
     public class AutomaticCheckService
     {
         // ДЛЯ ДЕБАГА: 1 секунда. Потом изменить на 24 часа (24 * 60 * 60 = 86400)
-        private const int CHECK_INTERVAL_SECONDS = 1;
+        private const int CHECK_INTERVAL_SECONDS = 24 * 60 * 60;
 
         // Для продакшена раскомментировать:
         // private const int CHECK_INTERVAL_SECONDS = 86400; // 24 часа
