@@ -723,6 +723,54 @@ namespace getBIMChecker.Services
             return reports;
         }
 
+        /// <summary>
+        /// Получить время последней проверки для модели
+        /// </summary>
+        /// <param name="modelId">ID модели</param>
+        /// <returns>DateTime последней проверки или NULL если проверок не было</returns>
+        public DateTime? GetLastCheckTime(int modelId)
+        {
+            System.Diagnostics.Debug.WriteLine($"\n[DB] >>> GetLastCheckTime");
+            System.Diagnostics.Debug.WriteLine($"[DB]     modelId: {modelId}");
+
+            try
+            {
+                using (var connection = new MySqlConnection(_settings.GetConnectionString()))
+                {
+                    connection.Open();
+
+                    string query = @"
+                        SELECT MAX(check_date) as last_check_date
+                        FROM AxisCheckResults
+                        WHERE model_id = @modelId";
+
+                    using (var cmd = new MySqlCommand(query, connection))
+                    {
+                        cmd.Parameters.AddWithValue("@modelId", modelId);
+
+                        var result = cmd.ExecuteScalar();
+
+                        if (result != null && result != DBNull.Value)
+                        {
+                            DateTime lastCheckDate = Convert.ToDateTime(result);
+                            System.Diagnostics.Debug.WriteLine($"[DB]     ✓ Последняя проверка: {lastCheckDate:dd.MM.yyyy HH:mm:ss}");
+                            return lastCheckDate;
+                        }
+                        else
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[DB]     ℹ️ Проверок для модели не найдено");
+                            return null;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[DB]     ✗ ОШИБКА: {ex.Message}");
+                throw new Exception($"Ошибка получения времени последней проверки: {ex.Message}");
+            }
+        }
+
         #endregion
     }
 }
