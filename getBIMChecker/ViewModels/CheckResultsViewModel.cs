@@ -174,10 +174,6 @@ namespace getBIMChecker.ViewModels
             _eventHandler.OnFixCompleted = OnFixCompleted;
             _eventHandler.OnSelectCompleted = OnSelectCompleted;
 
-
-            // Создаем внешнее событие
-            _externalEvent = ExternalEvent.Create(_eventHandler);
-
             // Инициализация команд
             FixSelectedCommand = new RelayCommand(FixSelected, () => CanFixSelected);
             FixAllCommand = new RelayCommand(FixAll, () => HasErrors && !IsFixing);

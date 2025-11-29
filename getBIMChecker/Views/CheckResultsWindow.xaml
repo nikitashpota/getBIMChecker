@@ -318,9 +318,8 @@
 
                     <!-- Кнопка исправить все -->
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="🔧 Исправить все ошибки" 
+                        <Button Content="Исправить все ошибки" 
                                 Command="{Binding FixAllCommand}"
-                                Style="{StaticResource FixAllButtonStyle}"
                                 Width="180"
                                 ToolTip="Автоматически исправить все ошибки, которые можно исправить"/>
 
@@ -374,11 +373,14 @@
                             <DataGridTemplateColumn Header="Действие" Width="90">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
-                                        <Button Content="Исправить" 
-                                                Style="{StaticResource FixButtonStyle}"
-                                                Command="{Binding DataContext.FixSelectedCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                IsEnabled="{Binding Path=., Converter={StaticResource CanFixConverter}}"
-                                                ToolTip="Исправить эту ось"/>
+                                        <Button Content="Исправить"
+                                            Command="{Binding DataContext.FixSelectedCommand, 
+                                                             RelativeSource={RelativeSource AncestorType=Window}}"
+                                            CommandParameter="{Binding}"
+                                            IsEnabled="{Binding DataContext.CanFixSelected, 
+                                                         RelativeSource={RelativeSource AncestorType=Window}}"
+                                            ToolTip="Автоматически исправить эту ось"
+                                            Margin="2"/>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
