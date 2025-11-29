@@ -8,6 +8,7 @@ using System.Windows.Input;
 using Autodesk.Revit.DB;
 using Autodesk.Revit.UI;
 using getBIMChecker.Commands;
+using getBIMChecker.Events;
 using getBIMChecker.Models;
 using getBIMChecker.Services;
 
@@ -29,6 +30,14 @@ namespace getBIMChecker.ViewModels
         private readonly ModelBindingService _modelBindingService;
         private readonly AxisCollectionService _axisCollectionService;
 
+        // ExternalEvent для главного окна
+        private readonly AxisManagerEventHandler _eventHandler;
+        private readonly ExternalEvent _externalEvent;
+
+        // ExternalEvent для окна результатов (передаём дальше)
+        private readonly AxisFixEventHandler _fixEventHandler;
+        private readonly ExternalEvent _fixExternalEvent;
+
         private ObservableCollection<Directory> _directories;
         private Directory _selectedDirectory;
         private int? _boundDirectoryId;
@@ -36,6 +45,9 @@ namespace getBIMChecker.ViewModels
         private int _selectedAxisCount;
         private List<Grid> _selectedGrids;
         private string _statusMessage;
+
+        // Хранилище для немодального окна результатов
+        private Views.CheckResultsWindow _checkResultsWindow;
 
         #endregion
 
@@ -148,13 +160,29 @@ namespace getBIMChecker.ViewModels
 
         #region Constructor
 
-        public AxisManagerViewModel(ExternalCommandData commandData)
+        public AxisManagerViewModel(
+            ExternalCommandData commandData,
+            AxisManagerEventHandler managerEventHandler,
+            ExternalEvent managerExternalEvent,
+            AxisFixEventHandler fixEventHandler,
+            ExternalEvent fixExternalEvent)
         {
             _commandData = commandData;
             _uiDocument = commandData.Application.ActiveUIDocument;
             _document = _uiDocument.Document;
 
-            // Инициализация сервисов
+            // Сохраняем переданные ExternalEvent'ы
+            _eventHandler = managerEventHandler;
+            _externalEvent = managerExternalEvent;
+            _fixEventHandler = fixEventHandler;
+            _fixExternalEvent = fixExternalEvent;
+
+            // Настраиваем handler
+            _eventHandler.Document = _document;
+            _eventHandler.OnBindCompleted = OnBindCompleted;
+            _eventHandler.OnUnbindCompleted = OnUnbindCompleted;
+
+            // Инициализация настроек БД
             var dbSettings = DatabaseSettings.Default;
 
             // Инициализация БД
@@ -164,6 +192,7 @@ namespace getBIMChecker.ViewModels
                 return;
             }
 
+            // Инициализация сервисов
             _databaseService = new DatabaseService(dbSettings);
             _directoryService = new DirectoryService(_databaseService);
             _modelBindingService = new ModelBindingService();
@@ -198,6 +227,40 @@ namespace getBIMChecker.ViewModels
 
         #endregion
 
+        #region ExternalEvent Callbacks
+
+        private void OnBindCompleted(bool success, string error)
+        {
+            if (success)
+            {
+                LoadDirectories();
+                StatusMessage = $"Модель привязана к директории '{_eventHandler.DirectoryCode}'";
+            }
+            else
+            {
+                BoundDirectoryId = null; // Откатываем
+                MessageBox.Show($"Ошибка привязки:\n{error}", "Ошибка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private void OnUnbindCompleted(bool success, string error)
+        {
+            if (success)
+            {
+                BoundDirectoryId = null;
+                LoadDirectories();
+                StatusMessage = "Модель отвязана от директории";
+            }
+            else
+            {
+                MessageBox.Show($"Ошибка отвязки:\n{error}", "Ошибка",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        #endregion
+
         #region Command Methods
 
         /// <summary>
@@ -216,17 +279,19 @@ namespace getBIMChecker.ViewModels
                     // Проверяем существование параметра перед автоматической привязкой
                     if (_modelBindingService.CheckParameterExists(_document))
                     {
-                        // Автоматически привязываем модель к новой директории
-                        _modelBindingService.BindModelToDirectory(_document, code);
+                        // Автоматически привязываем модель к новой директории через ExternalEvent
                         BoundDirectoryId = newDirectoryId;
-                        StatusMessage = $"Директория '{code}' создана и привязана";
+                        _eventHandler.CurrentAction = AxisManagerAction.BindDirectory;
+                        _eventHandler.DirectoryCode = code;
+                        _externalEvent.Raise();
+
+                        StatusMessage = $"Директория '{code}' создана, выполняется привязка...";
                     }
                     else
                     {
                         StatusMessage = $"Директория '{code}' создана. Для привязки создайте параметр '#_Код площадки'";
+                        LoadDirectories();
                     }
-
-                    LoadDirectories();
                 }
                 catch (Exception ex)
                 {
@@ -253,13 +318,18 @@ namespace getBIMChecker.ViewModels
 
                     _directoryService.UpdateDirectory(directoryId, newCode);
 
-                    // Если редактируем привязанную директорию, обновляем параметр
+                    // Если редактируем привязанную директорию, обновляем параметр через ExternalEvent
                     if (BoundDirectoryId == directoryId)
                     {
-                        _modelBindingService.BindModelToDirectory(_document, newCode);
+                        _eventHandler.CurrentAction = AxisManagerAction.BindDirectory;
+                        _eventHandler.DirectoryCode = newCode;
+                        _externalEvent.Raise();
+                    }
+                    else
+                    {
+                        LoadDirectories();
                     }
 
-                    LoadDirectories();
                     StatusMessage = $"Директория обновлена с '{oldCode}' на '{newCode}'";
                 }
                 catch (Exception ex)
@@ -285,14 +355,17 @@ namespace getBIMChecker.ViewModels
                 bool deleted = _directoryService.DeleteDirectory(directoryId, directoryCode);
                 if (deleted)
                 {
-                    // Если удалили привязанную директорию, отвязываем модель
+                    // Если удалили привязанную директорию, отвязываем модель через ExternalEvent
                     if (BoundDirectoryId == directoryId)
                     {
-                        _modelBindingService.UnbindModel(_document);
-                        BoundDirectoryId = null;
+                        _eventHandler.CurrentAction = AxisManagerAction.UnbindDirectory;
+                        _externalEvent.Raise();
+                    }
+                    else
+                    {
+                        LoadDirectories();
                     }
 
-                    LoadDirectories();
                     StatusMessage = $"Директория '{directoryCode}' удалена";
                 }
             }
@@ -311,7 +384,6 @@ namespace getBIMChecker.ViewModels
 
             try
             {
-                // Сохраняем данные ПЕРЕД привязкой
                 int directoryId = SelectedDirectory.Id;
                 string directoryCode = SelectedDirectory.Code;
 
@@ -327,10 +399,15 @@ namespace getBIMChecker.ViewModels
                     return;
                 }
 
-                _modelBindingService.BindModelToDirectory(_document, directoryCode);
+                // Сохраняем ID до выполнения (откатим в callback если ошибка)
                 BoundDirectoryId = directoryId;
-                LoadDirectories();
-                StatusMessage = $"Модель привязана к директории '{directoryCode}'";
+
+                // Выполняем через ExternalEvent
+                _eventHandler.CurrentAction = AxisManagerAction.BindDirectory;
+                _eventHandler.DirectoryCode = directoryCode;
+                _externalEvent.Raise();
+
+                StatusMessage = "Выполняется привязка...";
             }
             catch (Exception ex)
             {
@@ -385,55 +462,35 @@ namespace getBIMChecker.ViewModels
             System.Diagnostics.Debug.WriteLine("=== НАЧАЛО SendAxis (отправка ЭТАЛОННЫХ осей) ===");
             System.Diagnostics.Debug.WriteLine("=========================================\n");
 
-            System.Diagnostics.Debug.WriteLine($"[SendAxis] IsBound: {IsBound}");
-            System.Diagnostics.Debug.WriteLine($"[SendAxis] BoundDirectoryId: {BoundDirectoryId}");
-            System.Diagnostics.Debug.WriteLine($"[SendAxis] _selectedGrids: {_selectedGrids?.Count ?? 0}");
-
             if (!IsBound)
             {
-                System.Diagnostics.Debug.WriteLine("[SendAxis] ✗ Модель не привязана");
                 MessageBox.Show("Модель не привязана к директории", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             if (_selectedGrids == null || _selectedGrids.Count == 0)
             {
-                System.Diagnostics.Debug.WriteLine("[SendAxis] ✗ Оси не выбраны");
                 MessageBox.Show("Не выбраны оси", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
             try
             {
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] >>> Сбор данных осей...");
-
                 // Собираем данные осей
                 var axisDataList = _axisCollectionService.CollectAxisData(_selectedGrids);
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ Собрано осей: {axisDataList.Count}");
-
-                if (axisDataList.Count > 0)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[SendAxis] Первая ось: {axisDataList[0].AxisName} ({axisDataList[0].X1:F1}, {axisDataList[0].Y1:F1})");
-                }
 
                 // Валидация
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] >>> Валидация...");
                 if (!_axisCollectionService.ValidateAxisData(axisDataList, out string errorMessage))
                 {
-                    System.Diagnostics.Debug.WriteLine($"[SendAxis] ✗ Ошибка валидации: {errorMessage}");
                     MessageBox.Show($"Ошибка валидации осей:\n{errorMessage}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
                     return;
                 }
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ Валидация пройдена");
 
                 // Проверка дубликатов
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] >>> Проверка дубликатов...");
                 var duplicates = _axisCollectionService.FindDuplicateAxisNames(axisDataList);
                 if (duplicates.Count > 0)
                 {
                     var duplicatesList = string.Join(", ", duplicates);
-                    System.Diagnostics.Debug.WriteLine($"[SendAxis] ⚠ Найдены дубликаты: {duplicatesList}");
-
                     var result = MessageBox.Show(
                         $"Найдены оси с одинаковыми именами: {duplicatesList}\n\nПродолжить?",
                         "Предупреждение",
@@ -441,53 +498,20 @@ namespace getBIMChecker.ViewModels
                         MessageBoxImage.Warning);
 
                     if (result == MessageBoxResult.No)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"[SendAxis] Отменено пользователем");
                         return;
-                    }
                 }
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ Проверка дубликатов завершена");
 
-                // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Получаем ID эталонной модели для директории
-                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Получение ID эталонной модели...");
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] BoundDirectoryId: {BoundDirectoryId.Value}");
-
+                // Получаем ID эталонной модели для директории
                 int referenceModelId = _databaseService.GetOrCreateReferenceModelId(BoundDirectoryId.Value);
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ ReferenceModelId получен: {referenceModelId}");
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] ℹ️ Оси будут сохранены как ЭТАЛОННЫЕ для директории");
 
                 // Удаляем старые эталонные оси директории
-                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Удаление старых эталонных осей...");
                 _databaseService.DeleteAxesByModelId(referenceModelId);
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ Старые эталонные оси удалены");
 
                 // Добавляем новые эталонные оси
-                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Добавление новых эталонных осей...");
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] Вызов InsertAxes с {axisDataList.Count} осями");
-
                 _databaseService.InsertAxes(referenceModelId, axisDataList);
 
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓✓✓ InsertAxes выполнен успешно!");
-
-                // Проверяем что вставилось
-                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Проверка вставки...");
-                var insertedAxes = _databaseService.GetAxesByModelId(referenceModelId);
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] Проверка: в БД теперь {insertedAxes.Count} эталонных осей");
-
-                if (insertedAxes.Count != axisDataList.Count)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[SendAxis] ⚠⚠⚠ ВНИМАНИЕ! Несоответствие количества!");
-                    System.Diagnostics.Debug.WriteLine($"[SendAxis] Отправлено: {axisDataList.Count}, В БД: {insertedAxes.Count}");
-                }
-
-                // Обновляем список директорий (для обновления количества осей)
-                System.Diagnostics.Debug.WriteLine($"\n[SendAxis] >>> Обновление списка директорий...");
+                // Обновляем список директорий
                 LoadDirectories();
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] ✓ Список обновлен");
-
-                System.Diagnostics.Debug.WriteLine($"\n=========================================");
-                System.Diagnostics.Debug.WriteLine($"=== УСПЕХ! Отправлено ЭТАЛОННЫХ осей: {axisDataList.Count} ===");
-                System.Diagnostics.Debug.WriteLine($"=========================================\n");
 
                 MessageBox.Show(
                     $"Успешно отправлено эталонных осей: {axisDataList.Count}\n\n" +
@@ -504,20 +528,6 @@ namespace getBIMChecker.ViewModels
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"\n=========================================");
-                System.Diagnostics.Debug.WriteLine($"=== ОШИБКА В SendAxis ===");
-                System.Diagnostics.Debug.WriteLine($"=========================================");
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] Тип: {ex.GetType().Name}");
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] Сообщение: {ex.Message}");
-                System.Diagnostics.Debug.WriteLine($"[SendAxis] StackTrace:\n{ex.StackTrace}");
-
-                if (ex.InnerException != null)
-                {
-                    System.Diagnostics.Debug.WriteLine($"[SendAxis] InnerException: {ex.InnerException.Message}");
-                }
-
-                System.Diagnostics.Debug.WriteLine($"=========================================\n");
-
                 MessageBox.Show($"Ошибка отправки осей:\n{ex.Message}", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -543,18 +553,11 @@ namespace getBIMChecker.ViewModels
                 System.Diagnostics.Debug.WriteLine("=== НАЧАЛО RunAxisCheck (проверка осей модели) ===");
                 System.Diagnostics.Debug.WriteLine("=========================================\n");
 
-                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] Текущая модель: {ModelName}");
-                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] Привязана к директории ID: {BoundDirectoryId.Value}");
-
-                // КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Получаем эталонные оси по ID директории
-                System.Diagnostics.Debug.WriteLine($"\n[RunAxisCheck] >>> Получение эталонных осей из директории...");
+                // Получаем эталонные оси по ID директории
                 var referenceAxes = _databaseService.GetReferenceAxesByDirectoryId(BoundDirectoryId.Value);
-                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] ✓ Получено эталонных осей: {referenceAxes.Count}");
 
                 if (referenceAxes.Count == 0)
                 {
-                    System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] ✗ Эталонные оси не найдены!");
-
                     MessageBox.Show(
                         "В базе данных нет эталонных осей для данной директории.\n\n" +
                         "Сначала отправьте эталонные оси в БД из модели-координации.",
@@ -564,43 +567,42 @@ namespace getBIMChecker.ViewModels
                     return;
                 }
 
-                // 2. Запустить проверку
-                System.Diagnostics.Debug.WriteLine($"\n[RunAxisCheck] >>> Запуск проверки осей текущей модели...");
+                // Запустить проверку
                 var validationService = new AxisValidationService();
                 var results = validationService.ValidateAllAxes(_document, referenceAxes);
-                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] ✓ Проверка завершена, найдено ошибок: {results.Count(r => r.HasErrors)}");
 
                 // Подсчитываем количество осей в модели
                 var axisCollectionService = new AxisCollectionService();
                 var modelGrids = axisCollectionService.GetAllGridsFromDocument(_document);
                 int totalAxesInModel = modelGrids.Count;
-                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] Всего осей в текущей модели: {totalAxesInModel}");
-                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] Всего эталонных осей: {referenceAxes.Count}");
 
-                // 3. Сохранить результаты в БД
-                // Создаём запись для текущей модели (не эталонной!)
+                // Сохранить результаты в БД
                 var currentModelId = _databaseService.CreateOrUpdateModel(ModelName, BoundDirectoryId.Value);
-                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] Текущая модель ID: {currentModelId}");
 
                 var reportService = new ReportService(_databaseService);
                 reportService.SaveCheckResults(currentModelId, CheckType.Manual, results, totalAxesInModel, referenceAxes.Count);
-                System.Diagnostics.Debug.WriteLine($"[RunAxisCheck] ✓ Результаты сохранены в БД");
 
-                // 4. Создать отчет
+                // Создать отчет
                 var directoryCode = _modelBindingService.GetBoundDirectoryCode(_document);
                 var report = reportService.GenerateReport(results, ModelName, directoryCode, totalAxesInModel, referenceAxes.Count);
 
-                System.Diagnostics.Debug.WriteLine($"\n=========================================");
-                System.Diagnostics.Debug.WriteLine($"=== ПРОВЕРКА ЗАВЕРШЕНА ===");
-                System.Diagnostics.Debug.WriteLine($"=========================================\n");
+                // Закрываем предыдущее окно результатов, если оно открыто
+                if (_checkResultsWindow != null && _checkResultsWindow.IsVisible)
+                {
+                    _checkResultsWindow.Close();
+                }
 
-                // 5. Показать окно с результатами
-                var viewModel = new CheckResultsViewModel(report, _uiDocument);
-                var window = new Views.CheckResultsWindow
+                // Передаём ExternalEvent в CheckResultsViewModel
+                var viewModel = new CheckResultsViewModel(report, _uiDocument, _fixEventHandler, _fixExternalEvent);
+                _checkResultsWindow = new Views.CheckResultsWindow
                 {
                     DataContext = viewModel
                 };
-                window.ShowDialog();
+
+                // Показываем немодальное окно
+                _checkResultsWindow.Show();
+
+                StatusMessage = $"Проверка завершена. Ошибок: {report.ErrorCount}";
             }
             catch (Exception ex)
             {

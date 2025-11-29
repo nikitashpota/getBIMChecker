@@ -51,11 +51,11 @@ namespace getBIMChecker.Models
         /// </summary>
         public static DatabaseSettings Default => new DatabaseSettings
         {
-            Host = "localhost",
+            Host = "94.26.228.158",
             Port = 3306,
             Database = "getBIMChecker_db",
             User = "root",
-            Password = "12345Qwert"
+            Password = "12345Qwert!"
         };
     }
 }

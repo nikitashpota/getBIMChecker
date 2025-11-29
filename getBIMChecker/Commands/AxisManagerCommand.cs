@@ -18,22 +18,33 @@ namespace getBIMChecker.Commands
                 UIDocument uidoc = commandData.Application.ActiveUIDocument;
                 Document doc = uidoc.Document;
 
-                // Проверяем, что документ открыт
                 if (doc == null)
                 {
                     message = "Нет активного документа";
                     return Result.Failed;
                 }
 
-                // Создаем и показываем главное окно
-                var viewModel = new ViewModels.AxisManagerViewModel(commandData);
+                // Создаём ExternalEvent'ы ЗДЕСЬ (в контексте API)
+                var managerEventHandler = new Events.AxisManagerEventHandler();
+                var managerExternalEvent = ExternalEvent.Create(managerEventHandler);
+
+                var fixEventHandler = new Events.AxisFixEventHandler();
+                var fixExternalEvent = ExternalEvent.Create(fixEventHandler);
+
+                // Передаём в ViewModel
+                var viewModel = new ViewModels.AxisManagerViewModel(
+                    commandData,
+                    managerEventHandler,
+                    managerExternalEvent,
+                    fixEventHandler,
+                    fixExternalEvent);
+
                 var window = new Views.AxisManagerWindow
                 {
                     DataContext = viewModel
                 };
 
-                // Показываем окно модально
-                bool? dialogResult = window.ShowDialog();
+                window.Show();
 
                 return Result.Succeeded;
             }

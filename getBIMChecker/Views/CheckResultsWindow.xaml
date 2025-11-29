@@ -3,17 +3,19 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:getBIMChecker.Converters"
         Title="Результаты проверки осей" 
-        Height="700" Width="1100"
-        MinHeight="600"
-        MinWidth="900"
+        Height="750" Width="1200"
+        MinHeight="650"
+        MinWidth="1000"
         WindowStartupLocation="CenterScreen"
-        Background="White">
+        Background="White"
+        Topmost="False">
 
     <Window.Resources>
         <!-- Конвертеры -->
         <local:ErrorTypesConverter x:Key="ErrorTypesConverter"/>
         <local:DeviationConverter x:Key="DeviationConverter"/>
         <local:PinnedConverter x:Key="PinnedConverter"/>
+        <local:CanFixConverter x:Key="CanFixConverter"/>
 
         <!-- Стили -->
         <Style x:Key="RevitButtonStyle" TargetType="Button">
@@ -38,6 +40,10 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background" Value="#D5D5D5"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#F5F5F5"/>
+                                <Setter Property="Foreground" Value="#AAAAAA"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -67,6 +73,81 @@
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
                                 <Setter Property="Background" Value="#C9D7F1"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#F5F5F5"/>
+                                <Setter Property="Foreground" Value="#AAAAAA"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="FixButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#E8F5E9"/>
+            <Setter Property="Foreground" Value="#2E7D32"/>
+            <Setter Property="BorderBrush" Value="#A5D6A7"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,2"/>
+            <Setter Property="FontSize" Value="10"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Height" Value="20"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="2">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#C8E6C9"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#F5F5F5"/>
+                                <Setter Property="Foreground" Value="#AAAAAA"/>
+                                <Setter Property="BorderBrush" Value="#E0E0E0"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="FixAllButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#4CAF50"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#388E3C"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="15,2"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontFamily" Value="Segoe UI"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Height" Value="28"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#43A047"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="#A5D6A7"/>
+                                <Setter Property="BorderBrush" Value="#C8E6C9"/>
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -116,40 +197,48 @@
             <Setter Property="FontFamily" Value="Segoe UI"/>
             <Setter Property="FontSize" Value="11"/>
         </Style>
+
+        <Style x:Key="StatusBarStyle" TargetType="Border">
+            <Setter Property="Background" Value="#F5F5F5"/>
+            <Setter Property="BorderBrush" Value="#E0E0E0"/>
+            <Setter Property="BorderThickness" Value="0,1,0,0"/>
+            <Setter Property="Padding" Value="10,5"/>
+        </Style>
     </Window.Resources>
 
-    <Grid Margin="8">
+    <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="1.5*" MinHeight="150"/>
-            <!-- Информация о проверке -->
-            <RowDefinition Height="5"/>
-            <RowDefinition Height="5*" MinHeight="300"/>
-            <!-- Таблица ошибок (ОСНОВНАЯ) -->
-            <RowDefinition Height="5"/>
-            <RowDefinition Height="0.7*" MinHeight="40"/>
-            <!-- Кнопки -->
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Информация о проверке -->
-        <Border Grid.Row="0" Style="{StaticResource RevitCardStyle}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="5"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+        <Grid Grid.Row="0" Margin="8">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" MinHeight="130"/>
+                <!-- Информация о проверке -->
+                <RowDefinition Height="5"/>
+                <RowDefinition Height="Auto"/>
+                <!-- Панель действий -->
+                <RowDefinition Height="5"/>
+                <RowDefinition Height="*" MinHeight="250"/>
+                <!-- Таблица ошибок -->
+                <RowDefinition Height="5"/>
+                <RowDefinition Height="Auto"/>
+                <!-- Кнопки -->
+            </Grid.RowDefinitions>
 
-                <TextBlock Grid.Row="0" Text="Информация о проверке" Style="{StaticResource RevitSectionHeaderStyle}"/>
-
-                <Grid Grid.Row="2">
+            <!-- Информация о проверке -->
+            <Border Grid.Row="0" Style="{StaticResource RevitCardStyle}">
+                <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="8"/>
-                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="5"/>
+                        <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <!-- Основная информация -->
-                    <Grid Grid.Row="0">
+                    <TextBlock Grid.Row="0" Text="Информация о проверке" Style="{StaticResource RevitSectionHeaderStyle}"/>
+
+                    <Grid Grid.Row="2">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="20"/>
@@ -164,7 +253,7 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="Модель:" Style="{StaticResource RevitLabelStyle}" FontWeight="SemiBold" Width="150"/>
-                                <TextBlock Grid.Column="1" Text="{Binding Report.ModelName}" Style="{StaticResource RevitLabelStyle}"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Report.ModelName}" Style="{StaticResource RevitLabelStyle}" TextTrimming="CharacterEllipsis"/>
                             </Grid>
                             <Grid Margin="0,2">
                                 <Grid.ColumnDefinitions>
@@ -208,89 +297,129 @@
                                     <ColumnDefinition Width="*"/>
                                 </Grid.ColumnDefinitions>
                                 <TextBlock Grid.Column="0" Text="Осей с ошибками:" Style="{StaticResource RevitLabelStyle}" FontWeight="SemiBold" Width="180"/>
-                                <TextBlock Grid.Column="1" Text="{Binding Report.ErrorCount}" Style="{StaticResource RevitLabelStyle}" Foreground="#CC0000" FontWeight="Bold"/>
-                            </Grid>
-                            <Grid Margin="0,2">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto"/>
-                                    <ColumnDefinition Width="*"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Осей без ошибок:" Style="{StaticResource RevitLabelStyle}" FontWeight="SemiBold" Width="180"/>
-                                <TextBlock Grid.Column="1" Text="{Binding Report.SuccessCount}" Style="{StaticResource RevitLabelStyle}" Foreground="#008000" FontWeight="Bold"/>
+                                <TextBlock Grid.Column="1" Text="{Binding Errors.Count}" Style="{StaticResource RevitLabelStyle}" Foreground="#CC0000" FontWeight="Bold"/>
                             </Grid>
                         </StackPanel>
                     </Grid>
-
-                    <!-- Типы ошибок -->
-                    <StackPanel Grid.Row="2">
-                        <TextBlock Text="Типы ошибок:" Style="{StaticResource RevitLabelStyle}" FontWeight="SemiBold" Margin="0,0,0,3"/>
-                        <TextBlock Text="{Binding ErrorStatistics}" 
-                                   Style="{StaticResource RevitLabelStyle}"
-                                   TextWrapping="Wrap"/>
-                    </StackPanel>
                 </Grid>
-            </Grid>
-        </Border>
+            </Border>
 
-        <!-- Separator -->
-        <Separator Grid.Row="1" Style="{StaticResource RevitSeparator}"/>
+            <!-- Separator -->
+            <Separator Grid.Row="1" Style="{StaticResource RevitSeparator}"/>
 
-        <!-- Таблица ошибок -->
-        <Border Grid.Row="2" Style="{StaticResource RevitCardStyle}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="5"/>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+            <!-- Панель действий -->
+            <Border Grid.Row="2" Style="{StaticResource RevitCardStyle}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Row="0" 
-                           Text="{Binding Errors.Count, StringFormat='Найденные ошибки ({0})', Mode=OneWay}"
-                           Style="{StaticResource RevitSectionHeaderStyle}"/>
+                    <!-- Кнопка исправить все -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="🔧 Исправить все ошибки" 
+                                Command="{Binding FixAllCommand}"
+                                Style="{StaticResource FixAllButtonStyle}"
+                                Width="180"
+                                ToolTip="Автоматически исправить все ошибки, которые можно исправить"/>
 
-                <DataGrid Grid.Row="2" 
-                          ItemsSource="{Binding Errors}"
-                          SelectedItem="{Binding SelectedError, Mode=TwoWay}"
-                          Style="{StaticResource DataGridStyle}"
-                          VerticalScrollBarVisibility="Auto">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="ElementId" 
-                                            Binding="{Binding ElementId}" 
-                                            Width="100"/>
-                        <DataGridTextColumn Header="Имя оси" 
-                                            Binding="{Binding AxisName}" 
-                                            Width="100"/>
-                        <DataGridTextColumn Header="Тип ошибки" 
-                                            Binding="{Binding Path=., Converter={StaticResource ErrorTypesConverter}}" 
-                                            Width="300"/>
-                        <DataGridTextColumn Header="Смещение (мм)" 
-                                            Binding="{Binding Path=., Converter={StaticResource DeviationConverter}}" 
-                                            Width="120"/>
-                        <DataGridTextColumn Header="Закреплена" 
-                                            Binding="{Binding Path=., Converter={StaticResource PinnedConverter}}" 
-                                            Width="100"/>
-                        <DataGridTextColumn Header="Рабочий набор" 
-                                            Binding="{Binding WorksetName}" 
-                                            Width="*"/>
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Grid>
-        </Border>
+                        <TextBlock Text="Ошибки 'Отсутствует в эталоне' требуют ручного решения"
+                                   Style="{StaticResource RevitLabelStyle}"
+                                   Foreground="Gray"
+                                   FontStyle="Italic"
+                                   Margin="15,0,0,0"
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
 
-        <!-- Separator -->
-        <Separator Grid.Row="3" Style="{StaticResource RevitSeparator}"/>
+                    <!-- Статистика ошибок -->
+                    <TextBlock Grid.Column="2" 
+                               Text="{Binding ErrorStatistics}" 
+                               Style="{StaticResource RevitLabelStyle}"
+                               TextWrapping="Wrap"
+                               VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
 
-        <!-- Кнопки -->
-        <Border Grid.Row="4" Style="{StaticResource RevitCardStyle}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*"/>
-                </Grid.RowDefinitions>
+            <!-- Separator -->
+            <Separator Grid.Row="3" Style="{StaticResource RevitSeparator}"/>
 
-                <StackPanel Grid.Row="2" 
-                            Orientation="Horizontal" 
+            <!-- Таблица ошибок -->
+            <Border Grid.Row="4" Style="{StaticResource RevitCardStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="5"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Orientation="Horizontal">
+                        <TextBlock Text="{Binding Errors.Count, StringFormat='Найденные ошибки ({0})', Mode=OneWay}"
+                                   Style="{StaticResource RevitSectionHeaderStyle}"/>
+                        <TextBlock Text=" — выберите строку для выделения оси в модели"
+                                   Style="{StaticResource RevitLabelStyle}"
+                                   Foreground="Gray"
+                                   FontStyle="Italic"
+                                   Margin="10,0,0,0"/>
+                    </StackPanel>
+
+                    <DataGrid Grid.Row="2" 
+                              ItemsSource="{Binding Errors}"
+                              SelectedItem="{Binding SelectedError, Mode=TwoWay}"
+                              Style="{StaticResource DataGridStyle}"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollBarVisibility="Auto">
+                        <DataGrid.Columns>
+                            <!-- Кнопка исправить -->
+                            <DataGridTemplateColumn Header="Действие" Width="90">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="Исправить" 
+                                                Style="{StaticResource FixButtonStyle}"
+                                                Command="{Binding DataContext.FixSelectedCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                IsEnabled="{Binding Path=., Converter={StaticResource CanFixConverter}}"
+                                                ToolTip="Исправить эту ось"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTextColumn Header="ElementId" 
+                                                Binding="{Binding ElementId}" 
+                                                Width="90"/>
+                            <DataGridTextColumn Header="Имя оси" 
+                                                Binding="{Binding AxisName}" 
+                                                Width="90"/>
+                            <DataGridTextColumn Header="Тип ошибки" 
+                                                Binding="{Binding Path=., Converter={StaticResource ErrorTypesConverter}}" 
+                                                Width="280"/>
+                            <DataGridTextColumn Header="Смещение (мм)" 
+                                                Binding="{Binding Path=., Converter={StaticResource DeviationConverter}}" 
+                                                Width="110"/>
+                            <DataGridTextColumn Header="Закреплена" 
+                                                Binding="{Binding Path=., Converter={StaticResource PinnedConverter}}" 
+                                                Width="90"/>
+                            <DataGridTextColumn Header="Рабочий набор" 
+                                                Binding="{Binding WorksetName}" 
+                                                Width="*"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </Border>
+
+            <!-- Separator -->
+            <Separator Grid.Row="5" Style="{StaticResource RevitSeparator}"/>
+
+            <!-- Кнопки -->
+            <Border Grid.Row="6" Style="{StaticResource RevitCardStyle}">
+                <StackPanel Orientation="Horizontal" 
                             HorizontalAlignment="Right"
                             VerticalAlignment="Center">
+                    <Button Content="Обновить список" 
+                            Command="{Binding RefreshCommand}"
+                            Style="{StaticResource RevitApplyButtonStyle}"
+                            Width="120" 
+                            Margin="0,0,10,0"
+                            ToolTip="Обновить список ошибок (удалить исправленные)"/>
                     <Button Content="Экспорт в CSV" 
                             Command="{Binding ExportToCsvCommand}"
                             Style="{StaticResource RevitApplyButtonStyle}"
@@ -301,7 +430,7 @@
                             Style="{StaticResource RevitApplyButtonStyle}"
                             Width="80"/>
                 </StackPanel>
-            </Grid>
-        </Border>
+            </Border>
+        </Grid>
     </Grid>
 </Window>
