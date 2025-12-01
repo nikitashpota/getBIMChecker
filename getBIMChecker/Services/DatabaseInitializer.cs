@@ -1,6 +1,5 @@
-using System;
-using MySql.Data.MySqlClient;
 using getBIMChecker.Models;
+using MySql.Data.MySqlClient;
 
 namespace getBIMChecker.Services
 {
@@ -142,6 +141,49 @@ namespace getBIMChecker.Services
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
 
                 ExecuteNonQuery(connection, createAxisErrorsTable);
+
+                // Таблица Levels
+                string createLevelsTable = @"
+                    CREATE TABLE IF NOT EXISTS Levels (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        model_id INT NOT NULL,
+                        level_name VARCHAR(255) NOT NULL,
+                        elevation DOUBLE NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (model_id) REFERENCES Models(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+                ExecuteNonQuery(connection, createLevelsTable);
+
+                // Таблица LevelCheckResults
+                string createLevelCheckResultsTable = @"
+                    CREATE TABLE IF NOT EXISTS LevelCheckResults (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        model_id INT NOT NULL,
+                        check_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        check_type ENUM('manual', 'auto') NOT NULL,
+                        total_levels_in_model INT NOT NULL,
+                        total_reference_levels INT NOT NULL,
+                        error_count INT NOT NULL,
+                        FOREIGN KEY (model_id) REFERENCES Models(id) ON DELETE CASCADE,
+                        INDEX idx_model_date (model_id, check_date)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+                ExecuteNonQuery(connection, createLevelCheckResultsTable);
+
+                // Таблица LevelErrors
+                string createLevelErrorsTable = @"
+                    CREATE TABLE IF NOT EXISTS LevelErrors (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        check_result_id INT NOT NULL,
+                        level_name VARCHAR(255) NOT NULL,
+                        element_id BIGINT NULL,
+                        error_types VARCHAR(500) NOT NULL,
+                        deviation_mm DOUBLE NULL,
+                        is_pinned BOOLEAN NULL,
+                        workset_name VARCHAR(255) NULL,
+                        FOREIGN KEY (check_result_id) REFERENCES LevelCheckResults(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;";
+                ExecuteNonQuery(connection, createLevelErrorsTable);
+
             }
         }
 

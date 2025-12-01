@@ -483,6 +483,157 @@ namespace getBIMChecker.Services
 
         #endregion
 
+        #region Работа с уровнями
+
+        private const string LEVEL_REFERENCE_MODEL_NAME = "_LevelReference";
+
+        public int GetOrCreateLevelReferenceModelId(int directoryId)
+        {
+            return CreateOrUpdateModel(LEVEL_REFERENCE_MODEL_NAME, directoryId);
+        }
+
+        public void DeleteLevelsByModelId(int modelId)
+        {
+            using (var connection = new MySqlConnection(_settings.GetConnectionString()))
+            {
+                connection.Open();
+                using (var cmd = new MySqlCommand("DELETE FROM Levels WHERE model_id = @modelId", connection))
+                {
+                    cmd.Parameters.AddWithValue("@modelId", modelId);
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
+
+        public void InsertLevels(int modelId, List<LevelData> levels)
+        {
+            if (levels == null || levels.Count == 0) return;
+
+            using (var connection = new MySqlConnection(_settings.GetConnectionString()))
+            {
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        foreach (var level in levels)
+                        {
+                            using (var cmd = new MySqlCommand(
+                                "INSERT INTO Levels (model_id, level_name, elevation) VALUES (@modelId, @levelName, @elevation)",
+                                connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@modelId", modelId);
+                                cmd.Parameters.AddWithValue("@levelName", level.LevelName);
+                                cmd.Parameters.AddWithValue("@elevation", level.Elevation);
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
+                        transaction.Commit();
+                    }
+                    catch { transaction.Rollback(); throw; }
+                }
+            }
+        }
+
+        public List<LevelData> GetReferenceLevelsByDirectoryId(int directoryId)
+        {
+            var levels = new List<LevelData>();
+            using (var connection = new MySqlConnection(_settings.GetConnectionString()))
+            {
+                connection.Open();
+                using (var cmd = new MySqlCommand(@"
+            SELECT l.id, l.model_id, l.level_name, l.elevation, l.created_at
+            FROM Levels l INNER JOIN Models m ON l.model_id = m.id
+            WHERE m.directory_id = @directoryId AND m.model_name = @referenceName", connection))
+                {
+                    cmd.Parameters.AddWithValue("@directoryId", directoryId);
+                    cmd.Parameters.AddWithValue("@referenceName", LEVEL_REFERENCE_MODEL_NAME);
+                    using (var reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                            levels.Add(new LevelData
+                            {
+                                Id = reader.GetInt32("id"),
+                                ModelId = reader.GetInt32("model_id"),
+                                LevelName = reader.GetString("level_name"),
+                                Elevation = reader.GetDouble("elevation"),
+                                CreatedAt = reader.GetDateTime("created_at")
+                            });
+                    }
+                }
+            }
+            return levels;
+        }
+
+        public int SaveLevelCheckResult(int modelId, CheckType checkType, int totalLevelsInModel, int totalReferenceLevels, int errorCount)
+        {
+            using (var connection = new MySqlConnection(_settings.GetConnectionString()))
+            {
+                connection.Open();
+                using (var cmd = new MySqlCommand(@"
+            INSERT INTO LevelCheckResults (model_id, check_type, total_levels_in_model, total_reference_levels, error_count)
+            VALUES (@modelId, @checkType, @totalLevels, @totalRef, @errors)", connection))
+                {
+                    cmd.Parameters.AddWithValue("@modelId", modelId);
+                    cmd.Parameters.AddWithValue("@checkType", checkType == CheckType.Manual ? "manual" : "auto");
+                    cmd.Parameters.AddWithValue("@totalLevels", totalLevelsInModel);
+                    cmd.Parameters.AddWithValue("@totalRef", totalReferenceLevels);
+                    cmd.Parameters.AddWithValue("@errors", errorCount);
+                    cmd.ExecuteNonQuery();
+                    return (int)cmd.LastInsertedId;
+                }
+            }
+        }
+
+        public void SaveLevelErrors(int checkResultId, List<LevelValidationResult> errors)
+        {
+            if (errors == null || errors.Count == 0) return;
+            using (var connection = new MySqlConnection(_settings.GetConnectionString()))
+            {
+                connection.Open();
+                using (var transaction = connection.BeginTransaction())
+                {
+                    try
+                    {
+                        foreach (var error in errors)
+                        {
+                            using (var cmd = new MySqlCommand(@"
+                        INSERT INTO LevelErrors (check_result_id, level_name, element_id, error_types, deviation_mm, is_pinned, workset_name)
+                        VALUES (@checkResultId, @levelName, @elementId, @errorTypes, @deviationMm, @isPinned, @worksetName)", connection, transaction))
+                            {
+                                cmd.Parameters.AddWithValue("@checkResultId", checkResultId);
+                                cmd.Parameters.AddWithValue("@levelName", error.LevelName);
+                                cmd.Parameters.AddWithValue("@elementId", error.ElementId.HasValue ? (object)error.ElementId.Value : DBNull.Value);
+                                cmd.Parameters.AddWithValue("@errorTypes", error.GetErrorTypesString());
+                                cmd.Parameters.AddWithValue("@deviationMm", error.DeviationMm.HasValue ? (object)error.DeviationMm.Value : DBNull.Value);
+                                cmd.Parameters.AddWithValue("@isPinned", error.IsPinned.HasValue ? (object)error.IsPinned.Value : DBNull.Value);
+                                cmd.Parameters.AddWithValue("@worksetName", !string.IsNullOrEmpty(error.WorksetName) ? error.WorksetName : (object)DBNull.Value);
+                                cmd.ExecuteNonQuery();
+                            }
+                        }
+                        transaction.Commit();
+                    }
+                    catch { transaction.Rollback(); throw; }
+                }
+            }
+        }
+
+        public DateTime? GetLastLevelCheckTime(int modelId)
+        {
+            using (var connection = new MySqlConnection(_settings.GetConnectionString()))
+            {
+                connection.Open();
+                using (var cmd = new MySqlCommand("SELECT MAX(check_date) FROM LevelCheckResults WHERE model_id = @modelId", connection))
+                {
+                    cmd.Parameters.AddWithValue("@modelId", modelId);
+                    var result = cmd.ExecuteScalar();
+                    return result != null && result != DBNull.Value ? Convert.ToDateTime(result) : (DateTime?)null;
+                }
+            }
+        }
+
+        #endregion
+
         #region Сохранение результатов проверки
 
         /// <summary>

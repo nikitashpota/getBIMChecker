@@ -38,10 +38,6 @@
 		<Reference Include="RevitAPIUI">
 			<HintPath>$(ProgramW6432)\Autodesk\Revit 2025\RevitAPIUI.dll</HintPath>
 		</Reference>
-	</ItemGroup>	
-
-	<ItemGroup>
-	  <Folder Include="Converters\" />
 	</ItemGroup>
 
 </Project>

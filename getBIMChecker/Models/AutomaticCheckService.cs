@@ -20,6 +20,8 @@ namespace getBIMChecker.Services
         private readonly AxisValidationService _validationService;
         private readonly AxisCollectionService _axisCollectionService;
         private readonly ReportService _reportService;
+        private readonly LevelValidationService _levelValidationService;
+        private readonly LevelCollectionService _levelCollectionService;
 
         public AutomaticCheckService()
         {
@@ -31,6 +33,8 @@ namespace getBIMChecker.Services
             _validationService = new AxisValidationService();
             _axisCollectionService = new AxisCollectionService();
             _reportService = new ReportService(_databaseService);
+            _levelValidationService = new LevelValidationService();
+            _levelCollectionService = new LevelCollectionService();
 
             System.Diagnostics.Debug.WriteLine($"[AutoCheck] ✓ Интервал проверки: {CHECK_INTERVAL_SECONDS} секунд");
         }
@@ -115,6 +119,8 @@ namespace getBIMChecker.Services
 
                 // Шаг 6: Запускаем проверку осей
                 PerformAxisCheck(doc, directoryId, modelId, modelName, directoryCode);
+                // Проверка уровней
+                PerformLevelCheck(doc, directoryId, modelId, modelName, directoryCode);
             }
             catch (Exception ex)
             {
@@ -178,6 +184,36 @@ namespace getBIMChecker.Services
                 System.Diagnostics.Debug.WriteLine($"\n[AutoCheck] ✗ ОШИБКА при проверке осей:");
                 System.Diagnostics.Debug.WriteLine($"[AutoCheck] {ex.Message}");
                 System.Diagnostics.Debug.WriteLine($"[AutoCheck] StackTrace:\n{ex.StackTrace}");
+            }
+        }
+
+        private void PerformLevelCheck(Document doc, int directoryId, int modelId, string modelName, string directoryCode)
+        {
+            try
+            {
+                System.Diagnostics.Debug.WriteLine("\n[AutoCheck] >>> Начало автоматической проверки уровней...");
+
+                var referenceLevels = _databaseService.GetReferenceLevelsByDirectoryId(directoryId);
+                if (referenceLevels.Count == 0)
+                {
+                    System.Diagnostics.Debug.WriteLine("[AutoCheck] ⚠ Эталонные уровни не найдены");
+                    return;
+                }
+
+                var results = _levelValidationService.ValidateAllLevels(doc, referenceLevels);
+                var modelLevels = _levelCollectionService.GetAllLevelsFromDocument(doc);
+                int totalLevelsInModel = modelLevels.Count;
+                int errorsFound = results.Count(r => r.HasErrors);
+
+                int checkResultId = _databaseService.SaveLevelCheckResult(modelId, CheckType.Auto, totalLevelsInModel, referenceLevels.Count, errorsFound);
+                if (errorsFound > 0)
+                    _databaseService.SaveLevelErrors(checkResultId, results.Where(r => r.HasErrors).ToList());
+
+                System.Diagnostics.Debug.WriteLine($"[AutoCheck] ✓ Проверка уровней завершена. Ошибок: {errorsFound}");
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[AutoCheck] ✗ ОШИБКА проверки уровней: {ex.Message}");
             }
         }
     }
